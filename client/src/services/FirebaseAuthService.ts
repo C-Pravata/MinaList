@@ -2,6 +2,8 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   onAuthStateChanged,
   User as FirebaseUser,
@@ -17,6 +19,8 @@ export interface AuthUser {
 }
 
 class FirebaseAuthService {
+  private redirectResultProcessed = false;
+  
   // Current user conversion from Firebase user to our simpler AuthUser type
   convertUser(user: FirebaseUser | null): AuthUser | null {
     if (!user) return null;
@@ -32,6 +36,27 @@ class FirebaseAuthService {
   // Check if authentication is available
   isAuthAvailable(): boolean {
     return true; // We already verified Firebase config is available
+  }
+  
+  // Process any pending redirect result on app start
+  async processRedirectResult(): Promise<AuthUser | null> {
+    if (this.redirectResultProcessed) {
+      return null;
+    }
+    
+    this.redirectResultProcessed = true;
+    
+    try {
+      const result = await getRedirectResult(auth);
+      if (result) {
+        console.log('Processed redirect result:', result.user);
+        return this.convertUser(result.user);
+      }
+      return null;
+    } catch (error) {
+      console.error('Error processing redirect result:', error);
+      return null;
+    }
   }
   
   // Email sign-in
@@ -70,15 +95,22 @@ class FirebaseAuthService {
     }
   }
   
-  // Google sign-in
+  // Google sign-in with redirect
   async signInWithGoogle(): Promise<AuthUser | null> {
     if (!this.isAuthAvailable()) {
       throw new Error('Authentication not available - check Firebase configuration');
     }
     
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      return this.convertUser(result.user);
+      // First check if we have a redirect result
+      const redirectResult = await getRedirectResult(auth);
+      if (redirectResult) {
+        return this.convertUser(redirectResult.user);
+      }
+      
+      // Otherwise initiate a redirect
+      await signInWithRedirect(auth, googleProvider);
+      return null; // Control will not reach here normally as redirect happens
     } catch (error: any) {
       console.error('Google sign-in error:', error);
       throw error;

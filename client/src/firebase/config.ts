@@ -1,6 +1,6 @@
-import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getAnalytics, isSupported } from "firebase/analytics";
+import { initializeApp, FirebaseApp } from "firebase/app";
+import { getAuth, GoogleAuthProvider, Auth } from "firebase/auth";
+import { getAnalytics, isSupported, Analytics } from "firebase/analytics";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -13,10 +13,10 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-let app;
-let auth;
-let analytics = null;
-let googleProvider;
+let app: FirebaseApp;
+let auth: Auth;
+let analytics: Analytics | null = null;
+let googleProvider: GoogleAuthProvider;
 
 try {
   // Initialize Firebase only once
@@ -36,6 +36,7 @@ try {
   console.log('Firebase initialized successfully');
 } catch (error) {
   console.error('Firebase initialization error:', error);
+  throw new Error('Failed to initialize Firebase - check your configuration');
 }
 
 export { app, auth, googleProvider, analytics };

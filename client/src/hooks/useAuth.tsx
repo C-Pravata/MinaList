@@ -22,10 +22,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const initAuth = async () => {
       try {
-        const currentUser = await authService.getCurrentUser();
-        setUser(currentUser);
+        // First process any redirect result (for Google sign-in)
+        const redirectUser = await authService.processRedirectResult();
+        if (redirectUser) {
+          // If we got a user from redirect, use it and verify with backend
+          setUser(redirectUser);
+          try {
+            await apiService.verifyAuth(redirectUser);
+            queryClient.invalidateQueries({ queryKey: ['/api/notes'] });
+          } catch (error) {
+            console.error('Failed to authenticate redirect user with backend:', error);
+          }
+        } else {
+          // Otherwise check current user
+          const currentUser = await authService.getCurrentUser();
+          setUser(currentUser);
+        }
       } catch (error) {
         console.error('Error checking authentication:', error);
       } finally {
@@ -33,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    checkAuth();
+    initAuth();
 
     // Subscribe to auth state changes
     const unsubscribe = authService.onAuthStateChanged(async (updatedUser) => {

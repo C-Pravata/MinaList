@@ -118,16 +118,16 @@ export default function AuthPage() {
     setError(null);
     
     try {
-      const result = await signInWithGoogle();
-      if (result) {
-        navigate("/");
-      }
+      // With redirect flow, this will just trigger a redirect
+      // User will return to the app later after authentication
+      await signInWithGoogle();
+      
+      // This code will likely not run as the redirect happens immediately
+      // But we keep it for handling any immediate responses
+      setIsLoading(false);
     } catch (err: any) {
-      // Don't show error for user closing the popup
-      if (err.code !== "auth/popup-closed-by-user") {
-        setError(err.message || "Google sign-in failed. Please try again.");
-      }
-    } finally {
+      console.error('Google sign-in error:', err);
+      setError("Sign-in failed. Please try again.");
       setIsLoading(false);
     }
   };
