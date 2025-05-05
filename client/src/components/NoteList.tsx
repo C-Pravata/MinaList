@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "@/lib/formatDate";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { Search, SlidersHorizontal, X, Plus } from "lucide-react";
 import { Note } from "@shared/schema";
 import SwipeableNote from "@/components/SwipeableNote";
 import { useToast } from "@/hooks/use-toast";
@@ -53,10 +53,10 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
       )
     : notes;
 
-  // Sort notes based on updatedAt date
+  // Sort notes based on updated_at date
   const sortedNotes = [...filteredNotes].sort((a, b) => {
-    const dateA = new Date(a.updatedAt).getTime();
-    const dateB = new Date(b.updatedAt).getTime();
+    const dateA = new Date(a.updated_at).getTime();
+    const dateB = new Date(b.updated_at).getTime();
     return sortOldestFirst ? dateA - dateB : dateB - dateA;
   });
 

@@ -1,11 +1,13 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, SendHorizontal, Bot, XCircle } from "lucide-react";
+import { Loader2, SendHorizontal, Bot, XCircle, Sparkles, Lightbulb, RefreshCw, CopyCheck, PanelLeftClose } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useNotes } from "@/hooks/useNotes";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 interface AIAssistantProps {
   open: boolean;
