@@ -39,6 +39,7 @@ export default function NoteEditor() {
   };
 
   const handleContentChange = (value: string) => {
+    // Update local state
     setContent(value);
     
     // Extract first line as title
@@ -47,6 +48,9 @@ export default function NoteEditor() {
     
     // Save changes with debounce
     handleSave(value, newTitle);
+
+    // Log for debugging
+    console.log("Content updated:", value.substring(0, 100));
   };
 
   // Debounced save logic
@@ -118,41 +122,21 @@ export default function NoteEditor() {
 
   // Configure Quill modules
   const modules = {
-    toolbar: {
-      container: '#toolbar',
-      handlers: {
-        image: () => {
-          const input = document.createElement('input');
-          input.setAttribute('type', 'file');
-          input.setAttribute('accept', 'image/*');
-          input.click();
-          
-          input.onchange = async () => {
-            if (input.files && input.files[0]) {
-              const file = input.files[0];
-              try {
-                const url = await uploadImage(file);
-                const quill = quillRef.current?.getEditor();
-                const range = quill?.getSelection(true);
-                
-                if (quill && range) {
-                  quill.insertEmbed(range.index, 'image', url);
-                }
-              } catch (error) {
-                toast({
-                  title: "Upload failed",
-                  description: "Failed to upload image",
-                  variant: "destructive",
-                });
-              }
-            }
-          };
-        }
-      }
-    },
+    toolbar: [
+      [{ 'header': [1, 2, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      ['link', 'image'],
+      ['clean']
+    ],
     clipboard: {
       matchVisual: false,
     },
+    keyboard: {
+      bindings: {
+        tab: false,
+      }
+    }
   };
 
   const formats = [
@@ -197,9 +181,32 @@ export default function NoteEditor() {
     const range = quill.getSelection();
     const position = range ? range.index : quill.getLength();
     
-    quill.insertText(position, text);
-    // Create a valid range object for the selection
-    quill.setSelection({ index: position + text.length, length: 0 });
+    // Insert with proper line break if needed
+    if (position > 0 && !content.endsWith('\n')) {
+      quill.insertText(position, '\n\n');
+      quill.insertText(position + 2, text);
+      quill.setSelection(position + 2 + text.length, 0);
+    } else {
+      quill.insertText(position, text);
+      quill.setSelection(position + text.length, 0);
+    }
+    
+    // Update content state to trigger save
+    const updatedContent = quill.root.innerHTML;
+    setContent(updatedContent);
+    
+    // Save changes with the updated content
+    const newTitle = extractTitle(updatedContent);
+    setTitle(newTitle);
+    
+    // Trigger save
+    handleSave(updatedContent, newTitle);
+    
+    // Show a toast notification to confirm the AI text was added
+    toast({
+      title: "AI text added",
+      description: "The AI-generated text has been added to your note",
+    });
   };
 
   return (

@@ -2,8 +2,11 @@ import { useState } from "react";
 import { formatDistanceToNow } from "@/lib/formatDate";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search } from "lucide-react";
+import { Search, PlusCircle } from "lucide-react";
 import { Note } from "@shared/schema";
+import SwipeableNote from "@/components/SwipeableNote";
+import { useToast } from "@/hooks/use-toast";
+import { useNotes } from "@/hooks/useNotes";
 
 interface NoteListProps {
   notes: Note[];
@@ -15,6 +18,8 @@ interface NoteListProps {
 export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading }: NoteListProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchVisible, setSearchVisible] = useState(false);
+  const { deleteNote } = useNotes();
+  const { toast } = useToast();
 
   const toggleSearch = () => {
     setSearchVisible(!searchVisible);
@@ -37,6 +42,22 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
     // Remove HTML tags for the preview
     const textOnly = content.replace(/<\/?[^>]+(>|$)/g, "");
     return textOnly.substring(0, 60) + (textOnly.length > 60 ? "..." : "");
+  };
+  
+  const handleDeleteNote = async (id: number) => {
+    try {
+      await deleteNote(id);
+      toast({
+        title: "Note deleted",
+        description: "Your note has been permanently deleted",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete note",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -88,26 +109,13 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
         ) : (
           <div className="divide-y divide-[hsl(var(--notelist-border))]">
             {filteredNotes.map((note) => (
-              <div
+              <SwipeableNote
                 key={note.id}
-                onClick={() => onNoteSelect(note)}
-                className={`note-item p-4 cursor-pointer relative ${
-                  note.id === activeNoteId ? "active" : ""
-                }`}
-              >
-                {note.id === activeNoteId && (
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
-                )}
-                <h3 className="font-medium text-base truncate">{note.title || "Untitled"}</h3>
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-1">
-                  <p className="text-sm text-muted-foreground truncate pr-4">
-                    {getPreviewText(note.content)}
-                  </p>
-                  <span className="text-xs text-muted-foreground mt-1 sm:mt-0 whitespace-nowrap">
-                    {formatDistanceToNow(new Date(note.updated_at))}
-                  </span>
-                </div>
-              </div>
+                note={note}
+                isActive={note.id === activeNoteId}
+                onSelect={onNoteSelect}
+                onDelete={handleDeleteNote}
+              />
             ))}
           </div>
         )}
