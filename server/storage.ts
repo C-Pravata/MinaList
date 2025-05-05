@@ -5,7 +5,8 @@ import {
   attachments, type Attachment, type InsertAttachment
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, isNull } from "drizzle-orm";
+import { eq, and, desc, isNull, sql } from "drizzle-orm";
+import { pool } from "./db";
 
 // Keep the same interface but expand with new operations
 export interface IStorage {
@@ -124,23 +125,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAiChat(chat: InsertAiChat): Promise<AiChat> {
-    const [newChat] = await db.insert(aiChats)
-      .values(chat)
-      .returning();
-    return newChat;
+    // Use SQL query with drizzle's SQL tag
+    const messageJson = JSON.stringify(chat.messages);
+    const [result] = await db.execute(
+      sql`INSERT INTO ai_chats (note_id, messages) VALUES (${chat.note_id}, ${messageJson}::jsonb) RETURNING *`
+    );
+    return result as AiChat;
   }
 
   async updateAiChat(id: number, chat: UpdateAiChat): Promise<AiChat | undefined> {
-    const now = new Date();
-    const [updatedChat] = await db.update(aiChats)
-      .set({
-        ...chat,
-        updated_at: now
-      })
-      .where(eq(aiChats.id, id))
-      .returning();
+    // Use SQL query with drizzle's SQL tag
+    const messageJson = JSON.stringify(chat.messages);
+    const now = new Date().toISOString();
+    const results = await db.execute(
+      sql`UPDATE ai_chats SET messages = ${messageJson}::jsonb, updated_at = ${now}::timestamp WHERE id = ${id} RETURNING *`
+    );
     
-    return updatedChat;
+    if (!results || results.length === 0) {
+      return undefined;
+    }
+    
+    return results[0] as AiChat;
   }
 
   // Attachment operations
