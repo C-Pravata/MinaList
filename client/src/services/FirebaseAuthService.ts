@@ -18,6 +18,13 @@ export interface AuthUser {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
+  // Additional fields needed for demo user
+  isAnonymous?: boolean;
+  metadata?: {
+    creationTime?: string;
+    lastSignInTime?: string;
+  };
+  providerData?: any[];
 }
 
 class FirebaseAuthService {

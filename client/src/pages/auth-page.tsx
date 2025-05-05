@@ -44,9 +44,10 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("login");
-  const { user, signInWithEmail, createAccount, signInWithGoogle } = useAuth();
+  const { user, signInWithEmail, createAccount, signInWithGoogle, signInWithDemo } = useAuth();
   const [_, navigate] = useLocation();
   const { toast } = useToast();
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
 
   // If user is already logged in, redirect to home
   if (user) {
@@ -130,6 +131,24 @@ export default function AuthPage() {
       setIsLoading(false);
     }
   };
+  
+  // Handle demo login
+  const handleDemoLogin = async () => {
+    setIsDemoLoading(true);
+    setError(null);
+    
+    try {
+      const result = await signInWithDemo('demo', 'password123');
+      if (result) {
+        navigate("/");
+      }
+    } catch (err: any) {
+      console.error('Demo login error:', err);
+      setError(err.message || "Demo login failed. Please try again.");
+    } finally {
+      setIsDemoLoading(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen">
@@ -208,7 +227,7 @@ export default function AuthPage() {
                 </div>
               </div>
               
-              <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading}>
+              <Button variant="outline" className="w-full mb-2" onClick={handleGoogleSignIn} disabled={isLoading || isDemoLoading}>
                 {isLoading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -220,6 +239,26 @@ export default function AuthPage() {
                   </svg>
                 )}
                 {isLoading ? "Signing in..." : "Sign in with Google"}
+              </Button>
+              
+              {/* Demo user button */}
+              <Button 
+                variant="secondary" 
+                className="w-full" 
+                onClick={handleDemoLogin} 
+                disabled={isLoading || isDemoLoading}
+              >
+                {isDemoLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                  </svg>
+                )}
+                {isDemoLoading ? "Signing in..." : "Use Demo Account"}
               </Button>
             </TabsContent>
 
@@ -307,7 +346,7 @@ export default function AuthPage() {
                 </div>
               </div>
               
-              <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading}>
+              <Button variant="outline" className="w-full mb-2" onClick={handleGoogleSignIn} disabled={isLoading || isDemoLoading}>
                 {isLoading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -319,6 +358,26 @@ export default function AuthPage() {
                   </svg>
                 )}
                 {isLoading ? "Signing in..." : "Sign up with Google"}
+              </Button>
+              
+              {/* Demo user button */}
+              <Button 
+                variant="secondary" 
+                className="w-full" 
+                onClick={handleDemoLogin} 
+                disabled={isLoading || isDemoLoading}
+              >
+                {isDemoLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                  </svg>
+                )}
+                {isDemoLoading ? "Signing in..." : "Use Demo Account"}
               </Button>
             </TabsContent>
           </Tabs>

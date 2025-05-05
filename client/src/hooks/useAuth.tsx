@@ -206,7 +206,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: data.user.email || 'demo@example.com',
         displayName: data.user.displayName || 'Demo User',
         photoURL: null,
-        emailVerified: true,
         isAnonymous: false,
         metadata: {
           creationTime: new Date().toISOString(),
