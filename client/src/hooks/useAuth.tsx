@@ -1,0 +1,134 @@
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import authService, { AuthUser } from '@/services/FirebaseAuthService';
+import { queryClient } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
+
+interface AuthContextType {
+  user: AuthUser | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  signInWithEmail: (email: string, password: string) => Promise<AuthUser | null>;
+  createAccount: (email: string, password: string, displayName: string) => Promise<AuthUser | null>;
+  signInWithGoogle: () => Promise<AuthUser | null>;
+  signOut: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const currentUser = await authService.getCurrentUser();
+        setUser(currentUser);
+      } catch (error) {
+        console.error('Error checking authentication:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+
+    // Subscribe to auth state changes
+    const unsubscribe = authService.onAuthStateChanged((updatedUser) => {
+      setUser(updatedUser);
+      
+      // Refresh data when user changes
+      if (updatedUser) {
+        queryClient.invalidateQueries({ queryKey: ['/api/notes'] });
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Sign in with email and password
+  const signInWithEmail = async (email: string, password: string) => {
+    try {
+      const user = await authService.signInWithEmail(email, password);
+      toast({
+        title: 'Welcome back!',
+        description: user?.displayName ? `Signed in as ${user.displayName}` : 'Successfully signed in',
+      });
+      return user;
+    } catch (error) {
+      // Error is already handled by authService
+      return null;
+    }
+  };
+
+  // Create a new account with email and password
+  const createAccount = async (email: string, password: string, displayName: string) => {
+    try {
+      const user = await authService.createAccount(email, password, displayName);
+      toast({
+        title: 'Account created!',
+        description: 'Welcome to Mina Notes',
+      });
+      return user;
+    } catch (error) {
+      // Error is already handled by authService
+      return null;
+    }
+  };
+
+  // Sign in with Google
+  const signInWithGoogle = async () => {
+    try {
+      const user = await authService.signInWithGoogle();
+      if (user) {
+        toast({
+          title: 'Welcome!',
+          description: user.displayName ? `Signed in as ${user.displayName}` : 'Successfully signed in with Google',
+        });
+      }
+      return user;
+    } catch (error) {
+      // Only log error - no toast for popup being closed
+      if ((error as any).code !== 'auth/popup-closed-by-user') {
+        console.error('Google sign-in error:', error);
+      }
+      return null;
+    }
+  };
+
+  // Sign out
+  const signOut = async () => {
+    try {
+      await authService.signOut();
+      // Clear all queries from cache when user logs out
+      queryClient.clear();
+      toast({
+        title: 'Signed out',
+        description: 'You have been successfully signed out',
+      });
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
+
+  const value = {
+    user,
+    isLoading,
+    isAuthenticated: !!user,
+    signInWithEmail,
+    createAccount,
+    signInWithGoogle,
+    signOut,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}

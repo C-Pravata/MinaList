@@ -27,8 +27,18 @@ export const notes = pgTable("notes", {
 });
 
 // Forward declarations - will be set after table definitions
-export let userRelations: any;
-export let noteRelations: any;
+export const userRelations = relations(users, ({ many }) => ({
+  notes: many(notes)
+}));
+
+export const noteRelations = relations(notes, ({ one, many }) => ({
+  user: one(users, {
+    fields: [notes.user_id],
+    references: [users.id]
+  }),
+  aiChats: many(aiChats),
+  attachments: many(attachments)
+}));
 
 export const aiChats = pgTable("ai_chats", {
   id: serial("id").primaryKey(),
@@ -115,16 +125,4 @@ export type AiChat = typeof aiChats.$inferSelect;
 export type InsertAttachment = z.infer<typeof insertAttachmentSchema>;
 export type Attachment = typeof attachments.$inferSelect;
 
-// Set up relations after all tables are defined
-userRelations = relations(users, ({ many }) => ({
-  notes: many(notes)
-}));
-
-noteRelations = relations(notes, ({ one, many }) => ({
-  user: one(users, {
-    fields: [notes.user_id],
-    references: [users.id],
-  }),
-  aiChats: many(aiChats),
-  attachments: many(attachments)
-}));
+// We've already set up the relations above, no need to redefine them
