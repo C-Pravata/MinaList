@@ -66,11 +66,6 @@ class FirebaseAuthService {
       return this.convertUser(result.user);
     } catch (error: any) {
       console.error('Create account error:', error);
-      toast({
-        title: 'Registration Failed',
-        description: this.getAuthErrorMessage(error),
-        variant: 'destructive',
-      });
       throw error;
     }
   }
@@ -86,14 +81,6 @@ class FirebaseAuthService {
       return this.convertUser(result.user);
     } catch (error: any) {
       console.error('Google sign-in error:', error);
-      // Don't show toast for popup closed by user
-      if (error.code !== 'auth/popup-closed-by-user') {
-        toast({
-          title: 'Google Login Failed',
-          description: this.getAuthErrorMessage(error),
-          variant: 'destructive',
-        });
-      }
       throw error;
     }
   }
@@ -108,11 +95,6 @@ class FirebaseAuthService {
       await signOut(auth);
     } catch (error) {
       console.error('Sign out error:', error);
-      toast({
-        title: 'Sign Out Failed',
-        description: 'Failed to sign out properly',
-        variant: 'destructive',
-      });
       throw error;
     }
   }
