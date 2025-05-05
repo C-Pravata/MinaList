@@ -147,7 +147,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
 
   return (
     <TooltipProvider>
-      <div className="border-b border-border py-1 px-3 flex items-center justify-between gap-1 bg-background">
+      <div className="editor-toolbar border-b border-border py-1 px-3 flex items-center justify-between gap-1 sticky top-0 z-10">
         <div className="flex items-center overflow-x-auto no-scrollbar">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -155,7 +155,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
                 variant="ghost" 
                 size="icon" 
                 onClick={() => handleHeader()}
-                className="h-9 w-9 rounded-full text-foreground"
+                className="h-9 w-9 rounded-full text-foreground hover:bg-secondary/40"
               >
                 <Heading1 className="h-4 w-4" />
               </Button>
@@ -169,7 +169,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
                 variant="ghost" 
                 size="icon" 
                 onClick={() => handleFormat('bold')}
-                className="h-9 w-9 rounded-full text-foreground"
+                className="h-9 w-9 rounded-full text-foreground hover:bg-secondary/40"
               >
                 <Bold className="h-4 w-4" />
               </Button>
@@ -183,7 +183,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
                 variant="ghost" 
                 size="icon" 
                 onClick={() => handleFormat('italic')}
-                className="h-9 w-9 rounded-full text-foreground"
+                className="h-9 w-9 rounded-full text-foreground hover:bg-secondary/40"
               >
                 <Italic className="h-4 w-4" />
               </Button>
@@ -197,7 +197,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
                 variant="ghost" 
                 size="icon" 
                 onClick={() => handleFormat('underline')}
-                className="h-9 w-9 rounded-full text-foreground"
+                className="h-9 w-9 rounded-full text-foreground hover:bg-secondary/40"
               >
                 <Underline className="h-4 w-4" />
               </Button>
@@ -213,7 +213,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
                 variant="ghost" 
                 size="icon" 
                 onClick={() => handleListFormat('bullet')}
-                className="h-9 w-9 rounded-full text-foreground"
+                className="h-9 w-9 rounded-full text-foreground hover:bg-secondary/40"
               >
                 <List className="h-4 w-4" />
               </Button>
@@ -228,7 +228,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-9 w-9 rounded-full text-foreground"
+                    className="h-9 w-9 rounded-full text-foreground hover:bg-secondary/40"
                   >
                     <LinkIcon className="h-4 w-4" />
                   </Button>
@@ -267,7 +267,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="h-9 w-9 rounded-full text-foreground"
+                className="h-9 w-9 rounded-full text-foreground hover:bg-secondary/40"
                 onClick={handleImageInsert}
               >
                 <Image className="h-4 w-4" />
@@ -281,7 +281,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="h-9 w-9 rounded-full text-foreground"
+                className="h-9 w-9 rounded-full text-foreground hover:bg-secondary/40"
                 onClick={startSpeechRecognition}
               >
                 <Mic className="h-4 w-4" />
@@ -295,7 +295,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="h-9 w-9 rounded-full text-primary"
+                className="h-9 w-9 rounded-full text-primary hover:bg-primary/10"
                 onClick={onAiAssistantToggle}
               >
                 <MessageSquareText className="h-4 w-4" />
@@ -306,16 +306,12 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
         </div>
         
         <div className="flex items-center">
-          {isSaving && (
-            <span className="text-xs text-muted-foreground mr-2">Saving...</span>
-          )}
-          
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="h-9 w-9 rounded-full text-destructive"
+                className="h-9 w-9 rounded-full text-destructive hover:bg-destructive/10"
                 onClick={onDelete}
               >
                 <Trash2 className="h-4 w-4" />

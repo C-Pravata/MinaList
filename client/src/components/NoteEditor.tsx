@@ -211,8 +211,8 @@ export default function NoteEditor() {
         onAiAssistantToggle={handleAiAssistantToggle}
       />
       
-      <div className="flex-1 overflow-y-auto bg-background">
-        <div className="max-w-3xl mx-auto p-4">
+      <div className="flex-1 overflow-y-auto note-editor">
+        <div className="max-w-3xl mx-auto p-6">
           <ReactQuill
             ref={quillRef}
             theme="snow"
@@ -226,7 +226,7 @@ export default function NoteEditor() {
       </div>
       
       {saving && (
-        <div className="p-2 text-xs text-center text-muted-foreground bg-background/90 border-t border-border">
+        <div className="p-2 text-xs text-center text-primary/70 bg-background/80 backdrop-blur-sm fixed bottom-0 left-1/2 transform -translate-x-1/2 px-4 rounded-full shadow-sm border border-primary/10">
           Saving...
         </div>
       )}

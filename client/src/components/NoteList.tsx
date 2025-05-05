@@ -40,12 +40,12 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
   };
 
   return (
-    <div className="bg-background">
-      <div className="p-4 border-b border-border">
+    <div className="notes-list h-full">
+      <div className="p-3 border-b border-[hsl(var(--notelist-border))]">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
             <Search 
-              className="h-5 w-5 text-muted-foreground cursor-pointer" 
+              className="h-5 w-5 text-primary/80 cursor-pointer" 
               onClick={toggleSearch}
             />
             {searchVisible && (
@@ -53,7 +53,7 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
                 id="search-input"
                 type="text"
                 placeholder="Search notes"
-                className="bg-background w-60 md:w-80"
+                className="bg-background/50 border-0 shadow-none w-60 md:w-80 focus:ring-1 focus:ring-primary/30"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -70,7 +70,7 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
       <div className="max-w-4xl mx-auto">
         {isLoading ? (
           // Loading skeletons
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-[hsl(var(--notelist-border))]">
             {Array(5)
               .fill(0)
               .map((_, i) => (
@@ -86,21 +86,19 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
             {searchQuery ? "No matching notes found" : "No notes yet. Tap + to create your first note!"}
           </div>
         ) : (
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-[hsl(var(--notelist-border))]">
             {filteredNotes.map((note) => (
               <div
                 key={note.id}
                 onClick={() => onNoteSelect(note)}
-                className={`p-4 cursor-pointer transition-colors hover:bg-secondary/20 relative ${
-                  note.id === activeNoteId
-                    ? "bg-secondary/10"
-                    : "bg-background"
+                className={`note-item p-4 cursor-pointer relative ${
+                  note.id === activeNoteId ? "active" : ""
                 }`}
               >
                 {note.id === activeNoteId && (
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
                 )}
-                <h3 className="font-medium text-base">{note.title || "Untitled"}</h3>
+                <h3 className="font-medium text-base truncate">{note.title || "Untitled"}</h3>
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-1">
                   <p className="text-sm text-muted-foreground truncate pr-4">
                     {getPreviewText(note.content)}

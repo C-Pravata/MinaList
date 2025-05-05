@@ -127,14 +127,28 @@ export default function AIAssistant({ open, onClose, onInsertText }: AIAssistant
           {messages.slice(1).map((message, index) => (
             <div 
               key={index}
-              className={`mb-4 ${
+              className={`mb-4 ai-message ${
                 message.role === "user" 
-                  ? "bg-primary/10 ml-8 rounded-lg p-3"
-                  : "bg-secondary/20 mr-8 rounded-lg p-3"
+                  ? "bg-primary/10 ml-8 rounded-2xl p-4"
+                  : "bg-secondary/30 mr-8 rounded-2xl p-4 shadow-sm"
               }`}
             >
-              <div className="text-sm font-medium mb-1">
-                {message.role === "user" ? "You" : "Mina"}
+              <div className="text-sm font-medium mb-1 flex items-center gap-2">
+                {message.role === "user" ? (
+                  <>
+                    <span className="bg-primary/20 p-1 rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                      Y
+                    </span>
+                    <span>You</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="bg-primary text-white p-1 rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                      M
+                    </span>
+                    <span>Mina</span>
+                  </>
+                )}
               </div>
               <div className="text-sm whitespace-pre-wrap">
                 {message.content}
@@ -143,12 +157,18 @@ export default function AIAssistant({ open, onClose, onInsertText }: AIAssistant
               {message.role === "assistant" && (
                 <div className="flex justify-end mt-2">
                   <Button
-                    variant="ghost"
+                    variant="secondary"
                     size="sm"
                     onClick={() => handleInsert(message.content)}
-                    className="text-xs h-7"
+                    className="text-xs h-7 rounded-full"
                   >
-                    Insert into note
+                    <span className="flex items-center gap-1">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L19 9M19 9H5M19 9V15M5 9L12 2M5 9V15M12 22L5 15M12 22L19 15" 
+                          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Insert into note
+                    </span>
                   </Button>
                 </div>
               )}
@@ -156,10 +176,15 @@ export default function AIAssistant({ open, onClose, onInsertText }: AIAssistant
           ))}
           
           {isLoading && (
-            <div className="bg-secondary/20 mr-8 rounded-lg p-3 mb-4">
-              <div className="text-sm font-medium mb-1">Mina</div>
+            <div className="bg-secondary/30 mr-8 rounded-2xl p-4 mb-4 shadow-sm ai-message">
+              <div className="text-sm font-medium mb-1 flex items-center gap-2">
+                <span className="bg-primary text-white p-1 rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                  M
+                </span>
+                <span>Mina</span>
+              </div>
               <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 <span className="text-sm">Thinking...</span>
               </div>
             </div>
@@ -170,10 +195,11 @@ export default function AIAssistant({ open, onClose, onInsertText }: AIAssistant
         
         <div className="flex items-start gap-2">
           <Button 
-            variant="ghost" 
+            variant="outline" 
             size="icon" 
             onClick={clearConversation}
-            className="mt-1"
+            className="mt-1 rounded-full hover:bg-destructive/10 hover:text-destructive"
+            title="Clear conversation"
           >
             <XCircle className="h-4 w-4" />
           </Button>
@@ -183,14 +209,14 @@ export default function AIAssistant({ open, onClose, onInsertText }: AIAssistant
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="min-h-[60px]"
+            className="min-h-[60px] rounded-xl focus:ring-1 focus:ring-primary/30 resize-none"
           />
           
           <Button 
             onClick={handleSendPrompt} 
             disabled={prompt.trim() === "" || isLoading}
             size="icon"
-            className="mt-1"
+            className="mt-1 rounded-full bg-primary hover:bg-primary/90"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />

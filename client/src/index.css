@@ -24,6 +24,16 @@
   --ring: 270 91% 65%;
   --radius: 0.5rem;
   
+  /* Note list colors - light Apple Notes style */
+  --notelist-background: 0 0% 98%;
+  --notelist-hover: 0 0% 96%;
+  --notelist-active: 270 100% 98%;
+  --notelist-border: 0 0% 90%;
+  
+  /* Editor colors - light Apple Notes style */
+  --editor-background: 0 0% 100%;
+  --editor-toolbar: 0 0% 97%;
+  
   --sidebar-background: 0 0% 96.1%;
   --sidebar-foreground: 20 14.3% 4.1%;
   --sidebar-primary: 270 91% 65%;
@@ -60,6 +70,16 @@
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 0 0% 98%;
   --ring: 270 91% 65%;
+  
+  /* Note list colors - dark Apple Notes style */
+  --notelist-background: 240 10% 7%;
+  --notelist-hover: 240 10% 10%;
+  --notelist-active: 270 80% 15%;
+  --notelist-border: 240 10% 12%;
+  
+  /* Editor colors - dark Apple Notes style */
+  --editor-background: 240 10% 5%;
+  --editor-toolbar: 240 10% 7%;
   
   --sidebar-background: 240 5.9% 10%;
   --sidebar-foreground: 0 0% 98%;
@@ -153,4 +173,53 @@
 
 .ql-formats button:hover {
   @apply bg-secondary/70 dark:bg-secondary rounded-md;
+}
+
+/* Apple-like animations and transitions */
+.note-item {
+  @apply transition-all duration-200 ease-out;
+}
+
+.note-item:hover {
+  @apply bg-[hsl(var(--notelist-hover))];
+}
+
+.note-item.active {
+  @apply bg-[hsl(var(--notelist-active))];
+}
+
+/* Smooth transitions for editor */
+.editor-container {
+  @apply transition-colors duration-200 ease-out;
+}
+
+/* Animations for AI assistant */
+@keyframes slideIn {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.ai-message {
+  animation: slideIn 0.3s ease-out forwards;
+}
+
+/* Note list styling like Apple Notes */
+.notes-list {
+  @apply bg-[hsl(var(--notelist-background))];
+}
+
+/* Apple-style toolbar */
+.editor-toolbar {
+  @apply bg-[hsl(var(--editor-toolbar))];
+  @apply backdrop-blur-md bg-opacity-80;
+}
+
+.note-editor {
+  @apply bg-[hsl(var(--editor-background))];
 }
