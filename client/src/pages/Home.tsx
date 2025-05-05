@@ -7,6 +7,7 @@ import { Plus, X, Check } from "lucide-react";
 import { useNotes } from "@/hooks/useNotes";
 import { useToast } from "@/hooks/use-toast";
 import { Note } from "@shared/schema";
+import { motion } from "framer-motion";
 
 export default function Home() {
   const { 
@@ -83,10 +84,20 @@ export default function Home() {
       
       <div className="flex flex-1 overflow-hidden relative">
         {/* Notes List View */}
-        <div 
-          className={`w-full h-[calc(100vh-64px)] transition-all duration-300 ease-out absolute inset-0 overflow-y-auto ${
-            isEditing ? 'translate-x-[-100%] opacity-0' : 'translate-x-0 opacity-100'
-          }`}
+        <motion.div 
+          className="w-full h-[calc(100vh-64px)] absolute inset-0 overflow-y-auto"
+          initial={false}
+          animate={{
+            x: isEditing ? '-100%' : '0%',
+            opacity: isEditing ? 0 : 1,
+            scale: isEditing ? 0.95 : 1,
+          }}
+          transition={{
+            type: "spring",
+            stiffness: 300,
+            damping: 30,
+            mass: 1
+          }}
         >
           <NoteList 
             notes={notes}
@@ -94,16 +105,26 @@ export default function Home() {
             onNoteSelect={handleNoteSelect}
             isLoading={isLoading}
           />
-        </div>
+        </motion.div>
 
         {/* Editor View */}
-        <div 
-          className={`w-full h-[calc(100vh-64px)] transition-all duration-300 ease-out absolute inset-0 flex flex-col ${
-            isEditing ? 'translate-x-0 opacity-100' : 'translate-x-[100%] opacity-0'
-          }`}
+        <motion.div 
+          className="w-full h-[calc(100vh-64px)] absolute inset-0 flex flex-col"
+          initial={false}
+          animate={{
+            x: isEditing ? '0%' : '100%',
+            opacity: isEditing ? 1 : 0,
+            scale: isEditing ? 1 : 0.98,
+          }}
+          transition={{
+            type: "spring",
+            stiffness: 300,
+            damping: 30,
+            mass: 1
+          }}
         >
           <NoteEditor />
-        </div>
+        </motion.div>
       </div>
 
       {/* Floating action button with subtle animation */}
