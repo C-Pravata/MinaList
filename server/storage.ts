@@ -38,13 +38,36 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Demo user for testing
+  private demoUser: User = {
+    id: 999,
+    username: 'demo',
+    // This is "password123" - DO NOT use in production
+    password: '$2b$10$12tYfLlxdt.6.C4CyD9NuuKtqU0QBHGAHHcQxEPOWAeEG7G1SRk16', 
+    email: 'demo@example.com',
+    firebase_uid: null,
+    avatar_url: null,
+    created_at: new Date(),
+    updated_at: new Date()
+  };
+
   // User operations
   async getUser(id: number): Promise<User | undefined> {
+    // Return demo user for testing
+    if (id === 999) {
+      return this.demoUser;
+    }
+    
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
+    // Return demo user for testing
+    if (username === 'demo') {
+      return this.demoUser;
+    }
+    
     const [user] = await db.select().from(users).where(eq(users.username, username));
     return user;
   }

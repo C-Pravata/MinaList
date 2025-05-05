@@ -12,6 +12,8 @@ interface AuthContextType {
   createAccount: (email: string, password: string, displayName: string) => Promise<AuthUser | null>;
   signInWithGoogle: () => Promise<AuthUser | null>;
   signOut: () => Promise<void>;
+  // Direct login with demo user
+  signInWithDemo: (username: string, password: string) => Promise<AuthUser | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -173,6 +175,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Direct login using the backend (bypassing Firebase) for demo user
+  const signInWithDemo = async (username: string, password: string) => {
+    try {
+      setIsLoading(true);
+      
+      // Make direct call to our backend login endpoint
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Login failed');
+      }
+
+      // Get token and user data
+      const data = await response.json();
+      
+      // Store the token for future requests
+      ApiService.setToken(data.token);
+      
+      // Create a mock AuthUser from the demo user data
+      const demoUser: AuthUser = {
+        uid: data.user.uid || 'demo-user',
+        email: data.user.email || 'demo@example.com',
+        displayName: data.user.displayName || 'Demo User',
+        photoURL: null,
+        emailVerified: true,
+        isAnonymous: false,
+        metadata: {
+          creationTime: new Date().toISOString(),
+          lastSignInTime: new Date().toISOString(),
+        },
+        providerData: []
+      };
+      
+      // Update the user state
+      setUser(demoUser);
+      
+      // Refresh data after authentication
+      queryClient.invalidateQueries({ queryKey: ['/api/notes'] });
+      
+      toast({
+        title: 'Demo Login Successful',
+        description: 'Welcome to Mina Notes!',
+      });
+      
+      return demoUser;
+    } catch (error: any) {
+      console.error('Demo login error:', error);
+      toast({
+        title: 'Demo login failed',
+        description: error.message || 'Please check your credentials and try again',
+        variant: 'destructive',
+      });
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value = {
     user,
     isLoading,
@@ -181,6 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     createAccount,
     signInWithGoogle,
     signOut,
+    signInWithDemo,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
