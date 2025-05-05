@@ -4,6 +4,7 @@ import "react-quill/dist/quill.snow.css";
 import { useNotes } from "@/hooks/useNotes";
 import { useToast } from "@/hooks/use-toast";
 import EditorToolbar from "@/components/EditorToolbar";
+import AIAssistant from "@/components/AIAssistant";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function NoteEditor() {
@@ -13,6 +14,7 @@ export default function NoteEditor() {
   const quillRef = useRef<ReactQuill>(null);
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
   
   // Initialize editor with active note content when it changes
   useEffect(() => {
@@ -184,12 +186,29 @@ export default function NoteEditor() {
     );
   }
 
+  const handleAiAssistantToggle = () => {
+    setAiAssistantOpen(!aiAssistantOpen);
+  };
+  
+  const handleInsertAiText = (text: string) => {
+    if (!quillRef.current) return;
+    
+    const quill = quillRef.current.getEditor();
+    const range = quill.getSelection();
+    const position = range ? range.index : quill.getLength();
+    
+    quill.insertText(position, text);
+    // Create a valid range object for the selection
+    quill.setSelection({ index: position + text.length, length: 0 });
+  };
+
   return (
     <>
       <EditorToolbar 
         onDelete={handleDeleteNote} 
         isSaving={saving}
         quillRef={quillRef}
+        onAiAssistantToggle={handleAiAssistantToggle}
       />
       
       <div className="flex-1 overflow-y-auto bg-background">
@@ -211,6 +230,12 @@ export default function NoteEditor() {
           Saving...
         </div>
       )}
+      
+      <AIAssistant 
+        open={aiAssistantOpen} 
+        onClose={() => setAiAssistantOpen(false)}
+        onInsertText={handleInsertAiText}
+      />
       
       <div id="toolbar" className="hidden"></div>
     </>

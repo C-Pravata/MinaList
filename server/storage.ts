@@ -125,27 +125,36 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAiChat(chat: InsertAiChat): Promise<AiChat> {
-    // Use SQL query with drizzle's SQL tag
-    const messageJson = JSON.stringify(chat.messages);
-    const [result] = await db.execute(
-      sql`INSERT INTO ai_chats (note_id, messages) VALUES (${chat.note_id}, ${messageJson}::jsonb) RETURNING *`
-    );
-    return result as AiChat;
+    // Use direct PostgreSQL client for JSON handling
+    const client = await pool.connect();
+    try {
+      const result = await client.query(
+        'INSERT INTO ai_chats (note_id, messages) VALUES ($1, $2) RETURNING *',
+        [chat.note_id, JSON.stringify(chat.messages)]
+      );
+      return result.rows[0] as AiChat;
+    } finally {
+      client.release();
+    }
   }
 
   async updateAiChat(id: number, chat: UpdateAiChat): Promise<AiChat | undefined> {
-    // Use SQL query with drizzle's SQL tag
-    const messageJson = JSON.stringify(chat.messages);
-    const now = new Date().toISOString();
-    const results = await db.execute(
-      sql`UPDATE ai_chats SET messages = ${messageJson}::jsonb, updated_at = ${now}::timestamp WHERE id = ${id} RETURNING *`
-    );
-    
-    if (!results || results.length === 0) {
-      return undefined;
+    // Use direct PostgreSQL client for JSON handling
+    const client = await pool.connect();
+    try {
+      const result = await client.query(
+        'UPDATE ai_chats SET messages = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+        [JSON.stringify(chat.messages), id]
+      );
+      
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      return result.rows[0] as AiChat;
+    } finally {
+      client.release();
     }
-    
-    return results[0] as AiChat;
   }
 
   // Attachment operations

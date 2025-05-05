@@ -23,9 +23,10 @@ interface EditorToolbarProps {
   onDelete: () => void;
   isSaving: boolean;
   quillRef: React.RefObject<any>;
+  onAiAssistantToggle?: () => void;
 }
 
-export default function EditorToolbar({ onDelete, isSaving, quillRef }: EditorToolbarProps) {
+export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssistantToggle }: EditorToolbarProps) {
   const linkInputRef = useRef<HTMLInputElement>(null);
   
   const handleFormat = (format: string) => {
@@ -295,6 +296,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef }: EditorTo
                 variant="ghost" 
                 size="icon" 
                 className="h-9 w-9 rounded-full text-primary"
+                onClick={onAiAssistantToggle}
               >
                 <MessageSquareText className="h-4 w-4" />
               </Button>
