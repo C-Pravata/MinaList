@@ -28,8 +28,8 @@ export default function Home() {
       setIsEditing(true);
       
       toast({
-        title: "New note",
-        description: "Start writing...",
+        title: "New note created",
+        description: "Start writing your thoughts...",
       });
     } catch (error) {
       toast({
@@ -48,6 +48,12 @@ export default function Home() {
   const handleDone = () => {
     setIsEditing(false);
     setActiveNote(null);
+    
+    toast({
+      title: "Note saved",
+      description: "Your changes have been saved",
+      variant: "default",
+    });
   };
   
   const handleCancel = async () => {
@@ -55,6 +61,10 @@ export default function Home() {
     if (activeNote && activeNote.content === "<p>Start writing...</p>") {
       try {
         await deleteNote(activeNote.id);
+        toast({
+          title: "Empty note deleted",
+          description: "The empty note has been removed",
+        });
       } catch (error) {
         console.error("Failed to delete empty note", error);
       }
@@ -74,8 +84,8 @@ export default function Home() {
       <div className="flex flex-1 overflow-hidden relative">
         {/* Notes List View */}
         <div 
-          className={`w-full h-[calc(100vh-64px)] transition-all duration-300 ease-in-out absolute inset-0 overflow-y-auto ${
-            isEditing ? 'translate-x-[-100%]' : 'translate-x-0'
+          className={`w-full h-[calc(100vh-64px)] transition-all duration-300 ease-out absolute inset-0 overflow-y-auto ${
+            isEditing ? 'translate-x-[-100%] opacity-0' : 'translate-x-0 opacity-100'
           }`}
         >
           <NoteList 
@@ -88,19 +98,19 @@ export default function Home() {
 
         {/* Editor View */}
         <div 
-          className={`w-full h-[calc(100vh-64px)] transition-all duration-300 ease-in-out absolute inset-0 flex flex-col ${
-            isEditing ? 'translate-x-0' : 'translate-x-[100%]'
+          className={`w-full h-[calc(100vh-64px)] transition-all duration-300 ease-out absolute inset-0 flex flex-col ${
+            isEditing ? 'translate-x-0 opacity-100' : 'translate-x-[100%] opacity-0'
           }`}
         >
           <NoteEditor />
         </div>
       </div>
 
-      {/* Floating action button (only visible in notes list view) */}
+      {/* Floating action button with subtle animation */}
       {!isEditing && (
         <Button
           onClick={handleCreateNote}
-          className="fixed bottom-6 right-6 bg-primary hover:bg-primary/90 dark:bg-primary shadow-lg rounded-full p-3 h-14 w-14 flex items-center justify-center z-10"
+          className="fixed bottom-6 right-6 bg-primary hover:bg-primary/90 dark:bg-primary shadow-lg rounded-full p-3 h-14 w-14 flex items-center justify-center z-10 hover:scale-105 transition-all duration-200"
         >
           <Plus className="h-6 w-6" />
         </Button>
