@@ -1,44 +1,13 @@
-import { initializeApp } from 'firebase/app';
 import { 
-  getAuth, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
-  GoogleAuthProvider,
   signInWithPopup,
   signOut,
   onAuthStateChanged,
   User as FirebaseUser,
   updateProfile
 } from 'firebase/auth';
-import { toast } from '@/hooks/use-toast';
-
-// TODO: Replace with your Firebase config when available
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'PLACEHOLDER_API_KEY',
-  authDomain: `${import.meta.env.VITE_FIREBASE_PROJECT_ID || 'your-project-id'}.firebaseapp.com`,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'your-project-id',
-  storageBucket: `${import.meta.env.VITE_FIREBASE_PROJECT_ID || 'your-project-id'}.appspot.com`,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || 'PLACEHOLDER_APP_ID'
-};
-
-// Initialize Firebase
-// Note: This will throw an error with placeholder values, but the app will still load
-// Replace the placeholder values with your actual Firebase config values before deployment
-let app: any;
-let auth: any;
-let googleProvider: any;
-
-try {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  googleProvider = new GoogleAuthProvider();
-  
-  // Log initialization success
-  console.log('Firebase initialized successfully');
-} catch (error) {
-  console.warn('Firebase initialization skipped - credentials needed:', error);
-  console.info('⚠️ IMPORTANT: Replace placeholder Firebase values in FirebaseAuthService.ts before deploying');
-}
+import { auth, googleProvider } from '@/firebase/config';
 
 export interface AuthUser {
   uid: string;
@@ -62,7 +31,7 @@ class FirebaseAuthService {
   
   // Check if authentication is available
   isAuthAvailable(): boolean {
-    return !!auth && !!app;
+    return !!auth;
   }
   
   // Email sign-in
@@ -76,11 +45,6 @@ class FirebaseAuthService {
       return this.convertUser(result.user);
     } catch (error: any) {
       console.error('Email sign-in error:', error);
-      toast({
-        title: 'Login Failed',
-        description: this.getAuthErrorMessage(error),
-        variant: 'destructive',
-      });
       throw error;
     }
   }
