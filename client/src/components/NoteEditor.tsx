@@ -192,8 +192,8 @@ export default function NoteEditor() {
         quillRef={quillRef}
       />
       
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-3xl mx-auto">
+      <div className="flex-1 overflow-y-auto bg-background">
+        <div className="max-w-3xl mx-auto p-4">
           <ReactQuill
             ref={quillRef}
             theme="snow"
@@ -205,6 +205,14 @@ export default function NoteEditor() {
           />
         </div>
       </div>
+      
+      {saving && (
+        <div className="p-2 text-xs text-center text-muted-foreground bg-background/90 border-t border-border">
+          Saving...
+        </div>
+      )}
+      
+      <div id="toolbar" className="hidden"></div>
     </>
   );
 }
