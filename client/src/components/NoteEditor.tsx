@@ -218,8 +218,8 @@ export default function NoteEditor() {
         onAiAssistantToggle={handleAiAssistantToggle}
       />
       
-      <div className="flex-1 overflow-y-auto note-editor">
-        <div className="max-w-3xl mx-auto p-6">
+      <div className="flex-1 overflow-y-auto note-editor bg-background">
+        <div className="max-w-2xl mx-auto px-6 py-4">
           <ReactQuill
             ref={quillRef}
             theme="snow"
@@ -228,12 +228,13 @@ export default function NoteEditor() {
             modules={modules}
             formats={formats}
             placeholder="Start writing..."
+            className="editor-container"
           />
         </div>
       </div>
       
       {saving && (
-        <div className="p-2 text-xs text-center text-primary/70 bg-background/80 backdrop-blur-sm fixed bottom-0 left-1/2 transform -translate-x-1/2 px-4 rounded-full shadow-sm border border-primary/10">
+        <div className="p-1.5 text-xs font-medium text-center text-primary/80 bg-background/95 backdrop-blur-md fixed bottom-4 left-1/2 transform -translate-x-1/2 px-4 rounded-full shadow-sm border border-primary/10 transition-opacity duration-300">
           Saving...
         </div>
       )}
@@ -243,8 +244,6 @@ export default function NoteEditor() {
         onClose={() => setAiAssistantOpen(false)}
         onInsertText={handleInsertAiText}
       />
-      
-      <div id="toolbar" className="hidden"></div>
     </>
   );
 }

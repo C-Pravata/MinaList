@@ -10,7 +10,7 @@ interface HeaderProps {
 
 export default function Header({ isEditing, onDone, onCancel }: HeaderProps) {
   return (
-    <header className="border-b border-border p-3 flex justify-between items-center bg-background/80 backdrop-blur-md sticky top-0 z-10 shadow-sm">
+    <header className="border-b border-border/50 py-3 px-4 flex justify-between items-center bg-background/85 backdrop-blur-lg sticky top-0 z-20 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
       <div className="flex items-center gap-2 md:gap-4">
         {isEditing ? (
           <Button 
@@ -23,8 +23,8 @@ export default function Header({ isEditing, onDone, onCancel }: HeaderProps) {
           </Button>
         ) : (
           <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-semibold text-primary dark:text-primary">Mina</h1>
+            <Bot className="h-[18px] w-[18px] text-primary" />
+            <h1 className="text-lg font-semibold text-primary tracking-tight">Mina</h1>
           </div>
         )}
       </div>
@@ -45,9 +45,9 @@ export default function Header({ isEditing, onDone, onCancel }: HeaderProps) {
               variant="ghost" 
               size="icon" 
               aria-label="Search notes"
-              className="rounded-full hover:bg-secondary/40"
+              className="rounded-full hover:bg-secondary/40 h-8 w-8"
             >
-              <Search className="h-5 w-5" />
+              <Search className="h-[18px] w-[18px] text-foreground/80" />
             </Button>
             <ThemeToggle />
           </>

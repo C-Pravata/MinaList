@@ -147,98 +147,86 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
 
   return (
     <TooltipProvider>
-      <div className="editor-toolbar border-b border-border py-1 px-3 flex items-center justify-between gap-1 sticky top-0 z-10">
-        <div className="flex items-center overflow-x-auto no-scrollbar">
+      <div className="editor-toolbar bg-background/80 backdrop-blur-md border-b border-border py-1.5 px-4 flex items-center justify-between gap-2 sticky top-0 z-10">
+        {/* Only essential formatting options */}
+        <div className="flex items-center space-x-1.5 overflow-x-auto no-scrollbar">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
-                size="icon" 
+                size="sm" 
                 onClick={() => handleHeader()}
-                className="h-9 w-9 rounded-full text-foreground hover:bg-secondary/40"
+                className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
               >
                 <Heading1 className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Heading</TooltipContent>
+            <TooltipContent side="bottom" className="text-xs">Heading</TooltipContent>
           </Tooltip>
           
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
-                size="icon" 
+                size="sm" 
                 onClick={() => handleFormat('bold')}
-                className="h-9 w-9 rounded-full text-foreground hover:bg-secondary/40"
+                className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
               >
                 <Bold className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Bold</TooltipContent>
+            <TooltipContent side="bottom" className="text-xs">Bold</TooltipContent>
           </Tooltip>
           
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
-                size="icon" 
+                size="sm" 
                 onClick={() => handleFormat('italic')}
-                className="h-9 w-9 rounded-full text-foreground hover:bg-secondary/40"
+                className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
               >
                 <Italic className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Italic</TooltipContent>
+            <TooltipContent side="bottom" className="text-xs">Italic</TooltipContent>
           </Tooltip>
           
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
-                size="icon" 
-                onClick={() => handleFormat('underline')}
-                className="h-9 w-9 rounded-full text-foreground hover:bg-secondary/40"
-              >
-                <Underline className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Underline</TooltipContent>
-          </Tooltip>
-          
-          <Separator orientation="vertical" className="mx-1 h-6" />
-          
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
+                size="sm" 
                 onClick={() => handleListFormat('bullet')}
-                className="h-9 w-9 rounded-full text-foreground hover:bg-secondary/40"
+                className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
               >
                 <List className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Bullet List</TooltipContent>
+            <TooltipContent side="bottom" className="text-xs">Bullet List</TooltipContent>
           </Tooltip>
-          
+        </div>
+        
+        {/* Insert options group */}
+        <div className="flex items-center space-x-1.5">
           <Dialog>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DialogTrigger asChild>
                   <Button 
                     variant="ghost" 
-                    size="icon" 
-                    className="h-9 w-9 rounded-full text-foreground hover:bg-secondary/40"
+                    size="sm" 
+                    className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
                   >
                     <LinkIcon className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
               </TooltipTrigger>
-              <TooltipContent>Insert Link</TooltipContent>
+              <TooltipContent side="bottom" className="text-xs">Insert Link</TooltipContent>
             </Tooltip>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Insert link</DialogTitle>
+                <DialogTitle>Add a link</DialogTitle>
               </DialogHeader>
               <div className="flex flex-col gap-4 py-4">
                 <div className="flex flex-col gap-2">
@@ -256,7 +244,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
                     handleLink(linkInputRef.current?.value || '');
                   }}
                 >
-                  Insert Link
+                  Add Link
                 </Button>
               </div>
             </DialogContent>
@@ -266,62 +254,48 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
-                size="icon" 
-                className="h-9 w-9 rounded-full text-foreground hover:bg-secondary/40"
+                size="sm" 
+                className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
                 onClick={handleImageInsert}
               >
                 <Image className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Insert Image</TooltipContent>
+            <TooltipContent side="bottom" className="text-xs">Add Image</TooltipContent>
           </Tooltip>
-          
+        </div>
+        
+        {/* AI & Voice section */}
+        <div className="flex items-center space-x-1.5">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
-                size="icon" 
-                className="h-9 w-9 rounded-full text-foreground hover:bg-secondary/40"
+                size="sm" 
+                className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
                 onClick={startSpeechRecognition}
               >
                 <Mic className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Voice to Text</TooltipContent>
+            <TooltipContent side="bottom" className="text-xs">Voice to Text</TooltipContent>
           </Tooltip>
           
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
-                size="icon" 
-                className="h-9 w-9 rounded-full text-primary hover:bg-primary/10"
+                size="sm" 
+                className="h-8 px-3 rounded-full text-primary hover:bg-primary/10 flex items-center justify-center gap-1.5"
                 onClick={onAiAssistantToggle}
               >
                 <MessageSquareText className="h-4 w-4" />
+                <span className="text-xs font-medium">Ask Mina</span>
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Ask Mina AI</TooltipContent>
+            <TooltipContent side="bottom" className="text-xs">AI Assistant</TooltipContent>
           </Tooltip>
         </div>
-        
-        <div className="flex items-center">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-9 w-9 rounded-full text-destructive hover:bg-destructive/10"
-                onClick={onDelete}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Delete Note</TooltipContent>
-          </Tooltip>
-        </div>
-        
-        <div id="toolbar" className="hidden"></div>
       </div>
     </TooltipProvider>
   );
