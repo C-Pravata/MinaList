@@ -5,13 +5,24 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
+import AuthPage from "@/pages/auth-page";
 import { NotesProvider } from "@/lib/notesContext";
 import { ThemeProvider } from "@/components/ThemeToggle";
+import { AuthProvider } from "@/hooks/useAuth";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      {/* Protected routes */}
+      <Route path="/">
+        <ProtectedRoute>
+          <Home />
+        </ProtectedRoute>
+      </Route>
+      
+      {/* Public routes */}
+      <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -21,12 +32,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="theme">
-        <NotesProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
-        </NotesProvider>
+        <AuthProvider>
+          <NotesProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </NotesProvider>
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

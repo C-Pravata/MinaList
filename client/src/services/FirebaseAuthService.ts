@@ -162,7 +162,7 @@ class FirebaseAuthService {
         return;
       }
       
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
+      const unsubscribe = onAuthStateChanged(auth, (user: FirebaseUser | null) => {
         unsubscribe();
         resolve(this.convertUser(user));
       });
@@ -177,7 +177,7 @@ class FirebaseAuthService {
       return () => {};
     }
     
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user: FirebaseUser | null) => {
       callback(this.convertUser(user));
     });
     
