@@ -10,8 +10,10 @@ import {
   Trash2,
   Mic,
   AlignLeft,
-  MessageSquareText
+  MessageSquareText,
+  Share
 } from "lucide-react";
+import { ShareService } from "@/services/ShareService";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -24,6 +26,7 @@ interface EditorToolbarProps {
   isSaving: boolean;
   quillRef: React.RefObject<any>;
   onAiAssistantToggle?: () => void;
+  activeNoteTitle?: string;
 }
 
 export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssistantToggle }: EditorToolbarProps) {
