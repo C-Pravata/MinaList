@@ -30,9 +30,26 @@ export interface AuthUser {
 class FirebaseAuthService {
   private redirectResultProcessed = false;
   private auth: Auth;
+  private firebaseAvailable: boolean;
   
   constructor() {
     this.auth = auth;
+    
+    // Check if Firebase is properly configured
+    try {
+      const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+      const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+      const appId = import.meta.env.VITE_FIREBASE_APP_ID;
+      
+      this.firebaseAvailable = !!(apiKey && projectId && appId && this.auth);
+      
+      if (!this.firebaseAvailable) {
+        console.warn('Firebase configuration incomplete - some authentication methods will be unavailable');
+      }
+    } catch (e) {
+      console.error('Error checking Firebase configuration:', e);
+      this.firebaseAvailable = false;
+    }
   }
   
   // Current user conversion from Firebase user to our simpler AuthUser type
@@ -49,7 +66,7 @@ class FirebaseAuthService {
   
   // Check if authentication is available
   isAuthAvailable(): boolean {
-    return !!this.auth;
+    return this.firebaseAvailable;
   }
   
   // Process any pending redirect result on app start

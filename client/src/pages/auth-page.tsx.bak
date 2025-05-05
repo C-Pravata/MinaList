@@ -54,17 +54,13 @@ export default function AuthPage() {
   useEffect(() => {
     const checkFirebaseConfig = async () => {
       try {
-        // Attempt to check if Firebase is properly configured
-        const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
-        const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
-        const appId = import.meta.env.VITE_FIREBASE_APP_ID;
-        
-        if (!apiKey || !projectId || !appId) {
+        // Try to call Google sign-in to check if Firebase is configured correctly
+        await signInWithGoogle();
+      } catch (error: any) {
+        // If we get an auth/configuration-not-found error, Firebase isn't set up correctly
+        if (error.message && error.message.includes('Authentication not available')) {
           setIsFirebaseConfigError(true);
         }
-      } catch (error) {
-        // If there's any error with Firebase config, set the flag
-        setIsFirebaseConfigError(true);
       }
     };
     
@@ -138,15 +134,6 @@ export default function AuthPage() {
 
   // Handle Google sign-in
   const handleGoogleSignIn = async () => {
-    if (isFirebaseConfigError) {
-      toast({
-        title: "Firebase not configured",
-        description: "Please use the demo account instead.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     setIsLoading(true);
     setError(null);
     
