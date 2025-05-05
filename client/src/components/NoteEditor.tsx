@@ -216,6 +216,7 @@ export default function NoteEditor() {
         isSaving={saving}
         quillRef={quillRef}
         onAiAssistantToggle={handleAiAssistantToggle}
+        activeNoteTitle={title}
       />
       
       <div className="flex-1 overflow-y-auto note-editor bg-background">

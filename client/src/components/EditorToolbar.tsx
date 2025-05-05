@@ -29,7 +29,7 @@ interface EditorToolbarProps {
   activeNoteTitle?: string;
 }
 
-export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssistantToggle }: EditorToolbarProps) {
+export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssistantToggle, activeNoteTitle }: EditorToolbarProps) {
   const linkInputRef = useRef<HTMLInputElement>(null);
   
   const handleFormat = (format: string) => {
@@ -146,6 +146,26 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
     setTimeout(() => {
       recognition.stop();
     }, 10000); // Stop after 10 seconds
+  };
+  
+  // Handle sharing note content using the ShareService
+  const handleShareNote = async () => {
+    try {
+      if (!quillRef.current) return;
+      
+      const quill = quillRef.current.getEditor();
+      const content = quill.getText(); // Get plain text content
+      const title = activeNoteTitle || 'My Note';
+      
+      await ShareService.share({
+        title: title,
+        text: content,
+        dialogTitle: 'Share note from Mina'
+      });
+      
+    } catch (error) {
+      console.error('Error sharing note:', error);
+    }
   };
 
   return (
@@ -268,7 +288,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
           </Tooltip>
         </div>
         
-        {/* AI & Voice section */}
+        {/* AI, Voice & Share section */}
         <div className="flex items-center space-x-1.5">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -282,6 +302,20 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">Voice to Text</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
+                onClick={handleShareNote}
+              >
+                <Share className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Share Note</TooltipContent>
           </Tooltip>
           
           <Tooltip>
