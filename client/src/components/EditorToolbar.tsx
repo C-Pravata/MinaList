@@ -7,13 +7,17 @@ import {
   Image, 
   List,
   Heading1,
-  AlignLeft
+  Trash2,
+  Mic,
+  AlignLeft,
+  MessageSquareText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface EditorToolbarProps {
   onDelete: () => void;
@@ -63,110 +67,264 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef }: EditorTo
     }
   };
 
+  const handleImageInsert = () => {
+    const input = document.createElement('input');
+    input.setAttribute('type', 'file');
+    input.setAttribute('accept', 'image/*');
+    input.click();
+    
+    input.onchange = async () => {
+      if (input.files && input.files[0]) {
+        const quill = quillRef.current?.getEditor();
+        if (quill) {
+          const range = quill.getSelection();
+          const file = input.files[0];
+          
+          // Create form data for upload
+          const formData = new FormData();
+          formData.append('image', file);
+          
+          try {
+            const response = await fetch('/api/upload', {
+              method: 'POST',
+              body: formData,
+            });
+            
+            if (!response.ok) {
+              throw new Error('Upload failed');
+            }
+            
+            const data = await response.json();
+            if (range) {
+              quill.insertEmbed(range.index, 'image', data.url);
+            }
+          } catch (error) {
+            console.error('Image upload error:', error);
+          }
+        }
+      }
+    };
+  };
+  
+  const startSpeechRecognition = () => {
+    if (!('webkitSpeechRecognition' in window)) {
+      alert('Speech recognition is not supported in your browser. Try Chrome or Edge.');
+      return;
+    }
+    
+    // @ts-ignore - This is a browser API
+    const recognition = new window.webkitSpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    
+    recognition.onresult = (event: any) => {
+      const quill = quillRef.current?.getEditor();
+      if (quill) {
+        const range = quill.getSelection();
+        if (range) {
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              const transcript = event.results[i][0].transcript;
+              quill.insertText(range.index, transcript + ' ');
+              quill.setSelection(range.index + transcript.length + 1);
+            }
+          }
+        }
+      }
+    };
+    
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      recognition.stop();
+    };
+    
+    recognition.start();
+    setTimeout(() => {
+      recognition.stop();
+    }, 10000); // Stop after 10 seconds
+  };
+
   return (
-    <div className="border-b border-border py-1 px-3 flex items-center justify-center gap-1 bg-background">
-      <div className="flex items-center max-w-lg mx-auto overflow-x-auto no-scrollbar">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => handleHeader()}
-          className="h-9 w-9 rounded-full text-foreground"
-          title="Heading"
-        >
-          <Heading1 className="h-4 w-4" />
-        </Button>
-        
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => handleFormat('bold')}
-          className="h-9 w-9 rounded-full text-foreground"
-          title="Bold"
-        >
-          <Bold className="h-4 w-4" />
-        </Button>
-        
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => handleFormat('italic')}
-          className="h-9 w-9 rounded-full text-foreground"
-          title="Italic"
-        >
-          <Italic className="h-4 w-4" />
-        </Button>
-        
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => handleFormat('underline')}
-          className="h-9 w-9 rounded-full text-foreground"
-          title="Underline"
-        >
-          <Underline className="h-4 w-4" />
-        </Button>
-        
-        <Separator orientation="vertical" className="mx-1 h-6" />
-        
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => handleListFormat('bullet')}
-          className="h-9 w-9 rounded-full text-foreground"
-          title="Bullet List"
-        >
-          <List className="h-4 w-4" />
-        </Button>
-        
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-9 w-9 rounded-full text-foreground"
-              title="Insert Link"
-            >
-              <LinkIcon className="h-4 w-4" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Insert link</DialogTitle>
-            </DialogHeader>
-            <div className="flex flex-col gap-4 py-4">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="link">URL</Label>
-                <Input
-                  ref={linkInputRef}
-                  id="link"
-                  placeholder="https://example.com"
-                  className="col-span-3"
-                />
-              </div>
+    <TooltipProvider>
+      <div className="border-b border-border py-1 px-3 flex items-center justify-between gap-1 bg-background">
+        <div className="flex items-center overflow-x-auto no-scrollbar">
+          <Tooltip>
+            <TooltipTrigger asChild>
               <Button 
-                type="submit" 
-                onClick={() => {
-                  handleLink(linkInputRef.current?.value || '');
-                }}
+                variant="ghost" 
+                size="icon" 
+                onClick={() => handleHeader()}
+                className="h-9 w-9 rounded-full text-foreground"
               >
-                Insert Link
+                <Heading1 className="h-4 w-4" />
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </TooltipTrigger>
+            <TooltipContent>Heading</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => handleFormat('bold')}
+                className="h-9 w-9 rounded-full text-foreground"
+              >
+                <Bold className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Bold</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => handleFormat('italic')}
+                className="h-9 w-9 rounded-full text-foreground"
+              >
+                <Italic className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Italic</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => handleFormat('underline')}
+                className="h-9 w-9 rounded-full text-foreground"
+              >
+                <Underline className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Underline</TooltipContent>
+          </Tooltip>
+          
+          <Separator orientation="vertical" className="mx-1 h-6" />
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => handleListFormat('bullet')}
+                className="h-9 w-9 rounded-full text-foreground"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Bullet List</TooltipContent>
+          </Tooltip>
+          
+          <Dialog>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-9 w-9 rounded-full text-foreground"
+                  >
+                    <LinkIcon className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Insert Link</TooltipContent>
+            </Tooltip>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Insert link</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col gap-4 py-4">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="link">URL</Label>
+                  <Input
+                    ref={linkInputRef}
+                    id="link"
+                    placeholder="https://example.com"
+                    className="col-span-3"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  onClick={() => {
+                    handleLink(linkInputRef.current?.value || '');
+                  }}
+                >
+                  Insert Link
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-9 w-9 rounded-full text-foreground"
+                onClick={handleImageInsert}
+              >
+                <Image className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Insert Image</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-9 w-9 rounded-full text-foreground"
+                onClick={startSpeechRecognition}
+              >
+                <Mic className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Voice to Text</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-9 w-9 rounded-full text-primary"
+              >
+                <MessageSquareText className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Ask Mina AI</TooltipContent>
+          </Tooltip>
+        </div>
         
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-9 w-9 rounded-full text-foreground"
-          id="toolbar-image"
-          title="Insert Image"
-        >
-          <Image className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center">
+          {isSaving && (
+            <span className="text-xs text-muted-foreground mr-2">Saving...</span>
+          )}
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-9 w-9 rounded-full text-destructive"
+                onClick={onDelete}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Delete Note</TooltipContent>
+          </Tooltip>
+        </div>
         
         <div id="toolbar" className="hidden"></div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
