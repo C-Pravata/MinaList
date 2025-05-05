@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import authService, { AuthUser } from '@/services/FirebaseAuthService';
+import apiService from '@/services/ApiService';
 import { queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 
@@ -35,12 +36,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
 
     // Subscribe to auth state changes
-    const unsubscribe = authService.onAuthStateChanged((updatedUser) => {
+    const unsubscribe = authService.onAuthStateChanged(async (updatedUser) => {
       setUser(updatedUser);
       
-      // Refresh data when user changes
+      // Authenticate with our backend when user signs in
       if (updatedUser) {
-        queryClient.invalidateQueries({ queryKey: ['/api/notes'] });
+        try {
+          // Verify with our backend to get JWT token
+          await apiService.verifyAuth(updatedUser);
+          
+          // Refresh data after authentication
+          queryClient.invalidateQueries({ queryKey: ['/api/notes'] });
+        } catch (error) {
+          console.error('Failed to authenticate with backend:', error);
+          toast({
+            title: 'Authentication error',
+            description: 'There was a problem connecting to the server. Some features may not work.',
+            variant: 'destructive',
+          });
+        }
+      } else {
+        // Clear token on sign out
+        apiService.clearToken();
       }
     });
 
@@ -101,6 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       await authService.signOut();
+      // Clear backend token
+      apiService.clearToken();
       // Clear all queries from cache when user logs out
       queryClient.clear();
       toast({

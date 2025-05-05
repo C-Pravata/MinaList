@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import FirebaseSetupInstructions from "@/components/FirebaseSetupInstructions";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -138,7 +139,10 @@ export default function AuthPage() {
         <div className="w-full max-w-md">
           <div className="mb-6 text-center">
             <h1 className="text-3xl font-bold tracking-tight text-primary mb-2">Mina Notes</h1>
-            <p className="text-muted-foreground mb-6">Your smart note-taking companion</p>
+            <p className="text-muted-foreground mb-4">Your smart note-taking companion</p>
+            <div className="flex justify-center mb-4">
+              <FirebaseSetupInstructions />
+            </div>
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
