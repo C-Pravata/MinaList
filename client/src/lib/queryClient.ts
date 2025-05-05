@@ -28,17 +28,22 @@ export async function apiRequest(
   data?: unknown | undefined,
   customHeaders?: Record<string, string>
 ): Promise<Response> {
-  // Always include content-type for POST, PUT operations or if there's data
-  const contentTypeHeader = (method !== 'GET' || data) 
-    ? { "Content-Type": "application/json" } 
-    : {};
-    
+  // Set up headers
+  const headers: Record<string, string> = {};
+  
+  // Add content-type for operations with data
+  if (method !== 'GET' && data) {
+    headers["Content-Type"] = "application/json";
+  }
+  
+  // Add custom headers
+  if (customHeaders) {
+    Object.assign(headers, customHeaders);
+  }
+  
   const res = await fetch(url, {
     method,
-    headers: {
-      ...contentTypeHeader,
-      ...customHeaders
-    },
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include", // Include cookies for session authentication
   });
@@ -53,9 +58,17 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey, meta }) => {
+    // Create empty headers object that TypeScript knows is HeadersInit
+    const headers: HeadersInit = {};
+    
+    // Add any headers from meta if available
+    if (meta?.headers) {
+      Object.assign(headers, meta.headers);
+    }
+    
     const res = await fetch(queryKey[0] as string, {
       credentials: "include",
-      headers: meta?.headers || {}
+      headers
     });
 
     if (res.status === 401) {
