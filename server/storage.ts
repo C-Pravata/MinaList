@@ -13,10 +13,12 @@ export interface IStorage {
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByFirebaseId(firebaseUid: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
   // Note operations
   getNotes(): Promise<Note[]>;
+  getNotesByUserId(userId: number): Promise<Note[]>;
   getNote(id: number): Promise<Note | undefined>;
   createNote(note: InsertNote): Promise<Note>;
   updateNote(id: number, note: UpdateNote): Promise<Note | undefined>;
@@ -46,6 +48,11 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db.select().from(users).where(eq(users.username, username));
     return user;
   }
+  
+  async getUserByFirebaseId(firebaseUid: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.firebase_uid, firebaseUid));
+    return user;
+  }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
@@ -57,6 +64,16 @@ export class DatabaseStorage implements IStorage {
     return await db.select()
       .from(notes)
       .where(eq(notes.is_deleted, false))
+      .orderBy(desc(notes.updated_at));
+  }
+  
+  async getNotesByUserId(userId: number): Promise<Note[]> {
+    return await db.select()
+      .from(notes)
+      .where(and(
+        eq(notes.user_id, userId),
+        eq(notes.is_deleted, false)
+      ))
       .orderBy(desc(notes.updated_at));
   }
 

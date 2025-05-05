@@ -9,6 +9,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   email: text("email"),
   avatar_url: text("avatar_url"),
+  firebase_uid: text("firebase_uid").unique(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -76,6 +77,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
   email: true,
   avatar_url: true,
+  firebase_uid: true,
 });
 
 export const insertNoteSchema = createInsertSchema(notes).pick({

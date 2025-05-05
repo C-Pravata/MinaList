@@ -1,6 +1,7 @@
-import express, { type Express, Request, Response } from "express";
+import express, { type Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { authenticateOptional, authenticateRequired, generateToken } from "./middleware/auth";
 import { 
   insertNoteSchema, 
   updateNoteSchema,
@@ -44,19 +45,63 @@ const upload = multer({
 export async function registerRoutes(app: Express): Promise<Server> {
   // Serve uploaded files
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-
-  // Get all notes
-  app.get('/api/notes', async (req: Request, res: Response) => {
+  
+  // Firebase auth verification endpoint
+  app.post('/api/auth/verify', async (req: Request, res: Response) => {
     try {
-      const notes = await storage.getNotes();
+      const { uid, email, displayName } = req.body;
+      
+      if (!uid || !email) {
+        return res.status(400).json({ message: 'Invalid user data' });
+      }
+      
+      // Generate a JWT token for our backend
+      const token = generateToken({ uid, email, displayName });
+      
+      let dbUser = await storage.getUserByFirebaseId(uid);
+      
+      // Create the user if it doesn't exist
+      if (!dbUser) {
+        dbUser = await storage.createUser({
+          firebase_uid: uid,
+          username: displayName || email.split('@')[0],
+          email: email,
+          password: '', // Not needed with Firebase auth
+          avatar_url: null,
+        });
+      }
+      
+      res.json({ token, user: { uid, email, displayName, id: dbUser.id } });
+    } catch (error) {
+      console.error('Auth verification error:', error);
+      res.status(500).json({ message: 'Authentication failed' });
+    }
+  });
+  
+  // Get current user
+  app.get('/api/user', authenticateRequired, (req: Request, res: Response) => {
+    res.json({
+      id: req.userId,
+      uid: req.user?.uid,
+      email: req.user?.email,
+      displayName: req.user?.displayName
+    });
+  });
+
+  // Get all notes for the current user
+  app.get('/api/notes', authenticateRequired, async (req: Request, res: Response) => {
+    try {
+      // Get all notes for the current user
+      const notes = await storage.getNotesByUserId(req.userId!);
       res.json(notes);
     } catch (error) {
+      console.error('Error fetching notes:', error);
       res.status(500).json({ message: 'Failed to retrieve notes' });
     }
   });
 
-  // Get single note
-  app.get('/api/notes/:id', async (req: Request, res: Response) => {
+  // Get single note (verify ownership)
+  app.get('/api/notes/:id', authenticateRequired, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -67,6 +112,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!note) {
         return res.status(404).json({ message: 'Note not found' });
       }
+      
+      // Verify the user owns this note
+      if (note.user_id !== req.userId) {
+        return res.status(403).json({ message: 'You do not have permission to access this note' });
+      }
 
       res.json(note);
     } catch (error) {
@@ -74,10 +124,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create a new note
-  app.post('/api/notes', async (req: Request, res: Response) => {
+  // Create a new note for the current user
+  app.post('/api/notes', authenticateRequired, async (req: Request, res: Response) => {
     try {
-      const result = insertNoteSchema.safeParse(req.body);
+      const result = insertNoteSchema.safeParse({
+        ...req.body,
+        user_id: req.userId
+      });
+      
       if (!result.success) {
         const validationError = fromZodError(result.error);
         return res.status(400).json({ message: validationError.message });
@@ -86,16 +140,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const newNote = await storage.createNote(result.data);
       res.status(201).json(newNote);
     } catch (error) {
+      console.error('Error creating note:', error);
       res.status(500).json({ message: 'Failed to create note' });
     }
   });
 
-  // Update a note
-  app.put('/api/notes/:id', async (req: Request, res: Response) => {
+  // Update a note (verify ownership)
+  app.put('/api/notes/:id', authenticateRequired, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: 'Invalid note ID' });
+      }
+      
+      // Verify the user owns this note
+      const existingNote = await storage.getNote(id);
+      if (!existingNote) {
+        return res.status(404).json({ message: 'Note not found' });
+      }
+      
+      if (existingNote.user_id !== req.userId) {
+        return res.status(403).json({ message: 'You do not have permission to update this note' });
       }
 
       const result = updateNoteSchema.safeParse(req.body);
@@ -115,12 +180,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete a note
-  app.delete('/api/notes/:id', async (req: Request, res: Response) => {
+  // Delete a note (verify ownership)
+  app.delete('/api/notes/:id', authenticateRequired, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: 'Invalid note ID' });
+      }
+      
+      // Verify the user owns this note
+      const existingNote = await storage.getNote(id);
+      if (!existingNote) {
+        return res.status(404).json({ message: 'Note not found' });
+      }
+      
+      if (existingNote.user_id !== req.userId) {
+        return res.status(403).json({ message: 'You do not have permission to delete this note' });
       }
 
       const success = await storage.deleteNote(id);
