@@ -4,10 +4,12 @@ import {
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
-  signOut,
+  signOut as firebaseSignOut,
   onAuthStateChanged,
   User as FirebaseUser,
-  updateProfile
+  updateProfile,
+  Auth,
+  AuthError
 } from 'firebase/auth';
 import { auth, googleProvider } from '@/firebase/config';
 
@@ -20,6 +22,11 @@ export interface AuthUser {
 
 class FirebaseAuthService {
   private redirectResultProcessed = false;
+  private auth: Auth;
+  
+  constructor() {
+    this.auth = auth;
+  }
   
   // Current user conversion from Firebase user to our simpler AuthUser type
   convertUser(user: FirebaseUser | null): AuthUser | null {
@@ -35,7 +42,7 @@ class FirebaseAuthService {
   
   // Check if authentication is available
   isAuthAvailable(): boolean {
-    return true; // We already verified Firebase config is available
+    return !!this.auth;
   }
   
   // Process any pending redirect result on app start
@@ -47,7 +54,7 @@ class FirebaseAuthService {
     this.redirectResultProcessed = true;
     
     try {
-      const result = await getRedirectResult(auth);
+      const result = await getRedirectResult(this.auth);
       if (result) {
         console.log('Processed redirect result:', result.user);
         return this.convertUser(result.user);
@@ -66,11 +73,11 @@ class FirebaseAuthService {
     }
     
     try {
-      const result = await signInWithEmailAndPassword(auth, email, password);
+      const result = await signInWithEmailAndPassword(this.auth, email, password);
       return this.convertUser(result.user);
     } catch (error: any) {
       console.error('Email sign-in error:', error);
-      throw error;
+      throw new Error(this.getAuthErrorMessage(error));
     }
   }
   
@@ -81,7 +88,7 @@ class FirebaseAuthService {
     }
     
     try {
-      const result = await createUserWithEmailAndPassword(auth, email, password);
+      const result = await createUserWithEmailAndPassword(this.auth, email, password);
       
       // Set the display name
       if (displayName) {
@@ -91,29 +98,29 @@ class FirebaseAuthService {
       return this.convertUser(result.user);
     } catch (error: any) {
       console.error('Create account error:', error);
-      throw error;
+      throw new Error(this.getAuthErrorMessage(error));
     }
   }
   
-  // Google sign-in with redirect
+  // Google sign-in with popup (better for iframe environments like Replit)
   async signInWithGoogle(): Promise<AuthUser | null> {
     if (!this.isAuthAvailable()) {
       throw new Error('Authentication not available - check Firebase configuration');
     }
     
     try {
-      // First check if we have a redirect result
-      const redirectResult = await getRedirectResult(auth);
-      if (redirectResult) {
-        return this.convertUser(redirectResult.user);
+      // Use popup instead of redirect for better compatibility in Replit
+      const result = await signInWithPopup(this.auth, googleProvider);
+      return this.convertUser(result.user);
+    } catch (error: any) {
+      // Don't throw for user cancellations
+      if (error.code === 'auth/popup-closed-by-user') {
+        console.log('User closed the popup');
+        return null;
       }
       
-      // Otherwise initiate a redirect
-      await signInWithRedirect(auth, googleProvider);
-      return null; // Control will not reach here normally as redirect happens
-    } catch (error: any) {
       console.error('Google sign-in error:', error);
-      throw error;
+      throw new Error(this.getAuthErrorMessage(error));
     }
   }
   
@@ -124,7 +131,7 @@ class FirebaseAuthService {
     }
     
     try {
-      await signOut(auth);
+      await firebaseSignOut(this.auth);
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
@@ -140,7 +147,7 @@ class FirebaseAuthService {
         return;
       }
       
-      const unsubscribe = onAuthStateChanged(auth, (user: FirebaseUser | null) => {
+      const unsubscribe = onAuthStateChanged(this.auth, (user: FirebaseUser | null) => {
         unsubscribe();
         resolve(this.convertUser(user));
       });
@@ -155,7 +162,7 @@ class FirebaseAuthService {
       return () => {};
     }
     
-    const unsubscribe = onAuthStateChanged(auth, (user: FirebaseUser | null) => {
+    const unsubscribe = onAuthStateChanged(this.auth, (user: FirebaseUser | null) => {
       callback(this.convertUser(user));
     });
     
@@ -174,7 +181,9 @@ class FirebaseAuthService {
       'auth/account-exists-with-different-credential': 'Account already exists with a different sign-in method',
       'auth/popup-closed-by-user': 'Sign-in was cancelled',
       'auth/operation-not-allowed': 'This sign-in method is not enabled',
-      'auth/network-request-failed': 'Network error, please check your connection'
+      'auth/network-request-failed': 'Network error, please check your connection',
+      'auth/popup-blocked': 'The sign-in popup was blocked by your browser. Please allow popups for this site.',
+      'auth/unauthorized-domain': 'This domain is not authorized for OAuth operations. Please add it to your Firebase authorized domains.'
     };
     
     return errorMap[error.code] || error.message || 'An unknown error occurred';
