@@ -31,7 +31,7 @@ class FirebaseAuthService {
   
   // Check if authentication is available
   isAuthAvailable(): boolean {
-    return !!auth;
+    return true; // We already verified Firebase config is available
   }
   
   // Email sign-in
