@@ -86,19 +86,25 @@ export const authenticateOptional = async (req: Request, res: Response, next: Ne
  */
 export const authenticateRequired = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    console.log('Auth check - Headers:', req.headers);
+    
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Auth check - No authorization header or invalid format');
       return res.status(401).json({ message: 'Authentication required' });
     }
     
     const token = authHeader.split(' ')[1];
     if (!token) {
+      console.log('Auth check - No token found in header');
       return res.status(401).json({ message: 'Authentication required' });
     }
     
     try {
       // Verify the token
+      console.log('Auth check - Verifying token:', token.substring(0, 10) + '...');
       const decoded = jwt.verify(token, JWT_SECRET) as DecodedToken;
+      console.log('Auth check - Token valid, UID:', decoded.uid);
       
       // Set user info on request
       req.user = {
@@ -110,8 +116,10 @@ export const authenticateRequired = async (req: Request, res: Response, next: Ne
       // Try to find or create the internal user ID
       const dbUser = await storage.getUserByFirebaseId(decoded.uid);
       if (dbUser) {
+        console.log('Auth check - Found existing user, ID:', dbUser.id);
         req.userId = dbUser.id;
       } else {
+        console.log('Auth check - Creating new user for UID:', decoded.uid);
         // Create user record if it doesn't exist
         const newUser = await storage.createUser({
           firebase_uid: decoded.uid,
@@ -121,10 +129,12 @@ export const authenticateRequired = async (req: Request, res: Response, next: Ne
           password: '', // Not needed with Firebase auth
         });
         req.userId = newUser.id;
+        console.log('Auth check - Created user with ID:', newUser.id);
       }
       
       next();
     } catch (error) {
+      console.log('Auth check - Token verification failed:', error.message);
       return res.status(401).json({ message: 'Invalid or expired token' });
     }
   } catch (error) {

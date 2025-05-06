@@ -73,6 +73,12 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getUserByFirebaseId(firebaseUid: string): Promise<User | undefined> {
+    // Special handling for demo user
+    if (firebaseUid.startsWith('demo-')) {
+      console.log('Demo user detected with UID:', firebaseUid);
+      return this.demoUser;
+    }
+    
     const [user] = await db.select().from(users).where(eq(users.firebase_uid, firebaseUid));
     return user;
   }
@@ -81,6 +87,34 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
+
+  // Demo notes
+  private demoNotes: Note[] = [
+    {
+      id: 1001,
+      user_id: 999, // Demo user ID
+      title: 'Welcome to Mina Notes!',
+      content: '<h1>Welcome to Mina Notes!</h1><p>This is a demo note to get you started. Try:</p><ul><li>Creating a new note</li><li>Editing this note</li><li>Using the AI assistant</li><li>Adding attachments</li></ul><p>Enjoy your note-taking experience!</p>',
+      is_deleted: false,
+      is_pinned: true,
+      tags: ['welcome', 'demo'],
+      color: '#FFE0B2',
+      created_at: new Date(),
+      updated_at: new Date()
+    },
+    {
+      id: 1002,
+      user_id: 999, // Demo user ID
+      title: 'AI Assistant Guide',
+      content: '<h2>Using the AI Assistant</h2><p>Mina comes with a built-in AI assistant that can help you with various tasks:</p><ul><li>Summarizing content</li><li>Generating ideas</li><li>Formatting text</li><li>Answering questions</li></ul><p>Try clicking the AI button in the toolbar to start a conversation!</p>',
+      is_deleted: false,
+      is_pinned: false,
+      tags: ['ai', 'help'],
+      color: '#E1F5FE',
+      created_at: new Date(Date.now() - 86400000), // Yesterday
+      updated_at: new Date(Date.now() - 86400000)
+    }
+  ];
 
   // Note operations
   async getNotes(): Promise<Note[]> {
@@ -91,6 +125,12 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getNotesByUserId(userId: number): Promise<Note[]> {
+    // Return demo notes for the demo user
+    if (userId === 999) {
+      console.log('Returning demo notes for demo user');
+      return this.demoNotes;
+    }
+    
     return await db.select()
       .from(notes)
       .where(and(
@@ -101,6 +141,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNote(id: number): Promise<Note | undefined> {
+    // Check for demo notes
+    if (id === 1001 || id === 1002) {
+      console.log('Returning demo note with ID:', id);
+      return this.demoNotes.find(note => note.id === id);
+    }
+    
     const [note] = await db.select()
       .from(notes)
       .where(and(
@@ -111,6 +157,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createNote(insertNote: InsertNote): Promise<Note> {
+    // Handle demo user
+    if (insertNote.user_id === 999) {
+      console.log('Creating demo note');
+      const newNote: Note = {
+        id: Math.floor(1000 + Math.random() * 9000), // Random ID between 1000-9999
+        title: insertNote.title || 'New Note',
+        content: insertNote.content || '',
+        is_pinned: insertNote.is_pinned || false,
+        tags: insertNote.tags || [],
+        color: insertNote.color || '#ffffff',
+        user_id: 999,
+        is_deleted: false,
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+      
+      // Add to demo notes
+      this.demoNotes.push(newNote);
+      
+      return newNote;
+    }
+    
+    // Regular database operation
     const [note] = await db.insert(notes)
       .values({
         ...insertNote,
@@ -121,6 +190,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateNote(id: number, updateNote: UpdateNote): Promise<Note | undefined> {
+    // Handle demo notes
+    if (id >= 1000 && id < 10000) {
+      console.log('Updating demo note with ID:', id);
+      const index = this.demoNotes.findIndex(note => note.id === id);
+      
+      if (index === -1) {
+        return undefined;
+      }
+      
+      // Update the note
+      const oldNote = this.demoNotes[index];
+      const updatedNote: Note = {
+        ...oldNote,
+        ...updateNote,
+        updated_at: new Date()
+      };
+      
+      this.demoNotes[index] = updatedNote;
+      return updatedNote;
+    }
+    
+    // Regular database operation
     const now = new Date();
     const [updatedNote] = await db.update(notes)
       .set({
@@ -137,6 +228,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteNote(id: number): Promise<boolean> {
+    // Handle demo notes
+    if (id >= 1000 && id < 10000) {
+      console.log('Soft-deleting demo note with ID:', id);
+      const index = this.demoNotes.findIndex(note => note.id === id);
+      
+      if (index === -1) {
+        return false;
+      }
+      
+      // Soft-delete the note
+      this.demoNotes[index] = {
+        ...this.demoNotes[index],
+        is_deleted: true,
+        updated_at: new Date()
+      };
+      
+      return true;
+    }
+    
+    // Regular database operation
     const now = new Date();
     const [deletedNote] = await db.update(notes)
       .set({
