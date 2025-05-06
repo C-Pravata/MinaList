@@ -156,11 +156,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sign out
   const signOut = async () => {
     try {
+      // For Firebase users
       await authService.signOut();
+      
+      // For all users - clear backend tokens and state
+      console.log('Signing out and clearing token & state');
+      
       // Clear backend token
       ApiService.clearToken();
+      
+      // Clear user state
+      setUser(null);
+      
       // Clear all queries from cache when user logs out
       queryClient.clear();
+      
+      // Force reset the auth headers to empty
+      ApiService.updateAuthHeaders();
+      
+      // Clear any stored tokens from localStorage
+      localStorage.removeItem('mina_auth_token');
+      
       toast({
         title: 'Signed out',
         description: 'You have been successfully signed out',
@@ -197,8 +213,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Get token and user data
       const data = await response.json();
       
+      console.log('Demo login successful, received token:', data.token ? 'Token received' : 'No token');
+      console.log('Demo user data:', data.user);
+      
       // Store the token for future requests
+      if (!data.token) {
+        console.error('No token received from demo login!');
+        throw new Error('Authentication failed - no token received');
+      }
+      
       ApiService.setToken(data.token);
+      console.log('Token stored in localStorage:', !!localStorage.getItem('mina_auth_token'));
       
       // Create a mock AuthUser from the demo user data
       const demoUser: AuthUser = {
@@ -219,6 +244,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // CRITICAL: Make sure the queryClient has the auth headers before making any requests
       ApiService.updateAuthHeaders();
+      
+      // Test authentication headers
+      const testHeaders = ApiService.getAuthHeaders();
+      console.log('Auth headers set:', Object.keys(testHeaders).length > 0 ? 'Yes' : 'No');
       
       // Refresh data after authentication
       queryClient.invalidateQueries({ queryKey: ['/api/notes'] });

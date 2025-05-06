@@ -39,7 +39,10 @@ export async function apiRequest(
   // Try to get the auth token from localStorage
   const token = localStorage.getItem('mina_auth_token');
   if (token) {
+    console.log(`Adding auth token to ${method} request to ${url}`);
     headers["Authorization"] = `Bearer ${token}`;
+  } else {
+    console.warn(`No auth token found for ${method} request to ${url}`);
   }
   
   // Add custom headers
@@ -47,12 +50,20 @@ export async function apiRequest(
     Object.assign(headers, customHeaders);
   }
   
+  console.log(`Sending ${method} request to ${url} with auth header: ${headers["Authorization"] ? "Yes" : "No"}`);
+  
   const res = await fetch(url, {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include", // Include cookies for session authentication
   });
+
+  if (!res.ok) {
+    console.warn(`Request to ${url} failed with status ${res.status}`);
+  } else {
+    console.log(`Request to ${url} succeeded with status ${res.status}`);
+  }
 
   await throwIfResNotOk(res);
   return res;
@@ -75,7 +86,10 @@ export const getQueryFn: <T>(options: {
     // Ensure Authorization header is included
     const token = localStorage.getItem('mina_auth_token');
     if (token && !headers['Authorization']) {
+      console.log('Adding auth header to query, token found');
       headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      console.log('No token found in localStorage when making API request');
     }
     
     const res = await fetch(queryKey[0] as string, {
