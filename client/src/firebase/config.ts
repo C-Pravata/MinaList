@@ -1,11 +1,6 @@
-import { initializeApp, FirebaseApp } from "firebase/app";
-import { 
-  getAuth, 
-  GoogleAuthProvider, 
-  Auth,
-  connectAuthEmulator 
-} from "firebase/auth";
-import { getAnalytics, isSupported, Analytics } from "firebase/analytics";
+import { initializeApp } from "firebase/app";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getAnalytics, isSupported } from "firebase/analytics";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -18,17 +13,17 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app: FirebaseApp = initializeApp(firebaseConfig);
-const auth: Auth = getAuth(app);
-const googleProvider: GoogleAuthProvider = new GoogleAuthProvider();
-let analytics: Analytics | null = null;
-
-// Configure Google Auth provider
-googleProvider.setCustomParameters({
-  prompt: 'select_account'
-});
+let app;
+let auth;
+let analytics = null;
+let googleProvider;
 
 try {
+  // Initialize Firebase only once
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  googleProvider = new GoogleAuthProvider();
+  
   // Initialize analytics only in browser environment
   isSupported().then(supported => {
     if (supported) {

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import authService, { AuthUser } from '@/services/FirebaseAuthService';
-import ApiService from '@/services/ApiService';
+import apiService from '@/services/ApiService';
 import { queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 
@@ -12,8 +12,6 @@ interface AuthContextType {
   createAccount: (email: string, password: string, displayName: string) => Promise<AuthUser | null>;
   signInWithGoogle: () => Promise<AuthUser | null>;
   signOut: () => Promise<void>;
-  // Direct login with demo user
-  signInWithDemo: (username: string, password: string) => Promise<AuthUser | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,65 +21,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { toast } = useToast();
 
-  // Helper function to verify auth with our backend
-  const verifyAuthWithBackend = async (firebaseUser: AuthUser) => {
-    try {
-      // Verify with our backend to get JWT token
-      await ApiService.verifyAuth(firebaseUser);
-          
-      // Refresh data after authentication
-      queryClient.invalidateQueries({ queryKey: ['/api/notes'] });
-      return true;
-    } catch (error) {
-      console.error('Failed to authenticate with backend:', error);
-      toast({
-        title: 'Authentication error',
-        description: 'There was a problem connecting to the server. Some features may not work.',
-        variant: 'destructive',
-      });
-      return false;
-    }
-  };
-
   useEffect(() => {
-    const initAuth = async () => {
+    const checkAuth = async () => {
       try {
-        // Check for existing redirect result (from Google sign-in)
-        const redirectUser = await authService.processRedirectResult();
-        if (redirectUser) {
-          // If we got a user from redirect, use it and verify with backend
-          setUser(redirectUser);
-          await verifyAuthWithBackend(redirectUser);
-        } else {
-          // Otherwise check current user
-          const currentUser = await authService.getCurrentUser();
-          if (currentUser) {
-            setUser(currentUser);
-            // Try to verify any persistent user
-            await verifyAuthWithBackend(currentUser);
-          }
-        }
+        const currentUser = await authService.getCurrentUser();
+        setUser(currentUser);
       } catch (error) {
-        console.error('Error initializing authentication:', error);
+        console.error('Error checking authentication:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    initAuth();
+    checkAuth();
 
     // Subscribe to auth state changes
     const unsubscribe = authService.onAuthStateChanged(async (updatedUser) => {
-      // User status changed
-      const prevUser = user;
       setUser(updatedUser);
       
-      // If user signed in (and wasn't signed in before)
-      if (updatedUser && (!prevUser || prevUser.uid !== updatedUser.uid)) {
-        await verifyAuthWithBackend(updatedUser);
-      } else if (!updatedUser && prevUser) {
-        // User signed out
-        ApiService.clearToken();
+      // Authenticate with our backend when user signs in
+      if (updatedUser) {
+        try {
+          // Verify with our backend to get JWT token
+          await apiService.verifyAuth(updatedUser);
+          
+          // Refresh data after authentication
+          queryClient.invalidateQueries({ queryKey: ['/api/notes'] });
+        } catch (error) {
+          console.error('Failed to authenticate with backend:', error);
+          toast({
+            title: 'Authentication error',
+            description: 'There was a problem connecting to the server. Some features may not work.',
+            variant: 'destructive',
+          });
+        }
+      } else {
+        // Clear token on sign out
+        apiService.clearToken();
       }
     });
 
@@ -92,19 +68,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithEmail = async (email: string, password: string) => {
     try {
       const user = await authService.signInWithEmail(email, password);
-      if (user) {
-        toast({
-          title: 'Welcome back!',
-          description: user.displayName ? `Signed in as ${user.displayName}` : 'Successfully signed in',
-        });
-      }
-      return user;
-    } catch (error: any) {
       toast({
-        title: 'Sign-in failed',
-        description: error.message || 'Please check your credentials and try again',
-        variant: 'destructive',
+        title: 'Welcome back!',
+        description: user?.displayName ? `Signed in as ${user.displayName}` : 'Successfully signed in',
       });
+      return user;
+    } catch (error) {
+      // Error is already handled by authService
       return null;
     }
   };
@@ -113,19 +83,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const createAccount = async (email: string, password: string, displayName: string) => {
     try {
       const user = await authService.createAccount(email, password, displayName);
-      if (user) {
-        toast({
-          title: 'Account created!',
-          description: 'Welcome to Mina Notes',
-        });
-      }
-      return user;
-    } catch (error: any) {
       toast({
-        title: 'Registration failed',
-        description: error.message || 'Please try again with different credentials',
-        variant: 'destructive',
+        title: 'Account created!',
+        description: 'Welcome to Mina Notes',
       });
+      return user;
+    } catch (error) {
+      // Error is already handled by authService
       return null;
     }
   };
@@ -141,13 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
       return user;
-    } catch (error: any) {
-      if (error.message) {
-        toast({
-          title: 'Google Sign-in failed',
-          description: error.message,
-          variant: 'destructive',
-        });
+    } catch (error) {
+      // Only log error - no toast for popup being closed
+      if ((error as any).code !== 'auth/popup-closed-by-user') {
+        console.error('Google sign-in error:', error);
       }
       return null;
     }
@@ -156,118 +117,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sign out
   const signOut = async () => {
     try {
-      // For Firebase users
       await authService.signOut();
-      
-      // For all users - clear backend tokens and state
-      console.log('Signing out and clearing token & state');
-      
       // Clear backend token
-      ApiService.clearToken();
-      
-      // Clear user state
-      setUser(null);
-      
+      apiService.clearToken();
       // Clear all queries from cache when user logs out
       queryClient.clear();
-      
-      // Force reset the auth headers to empty
-      ApiService.updateAuthHeaders();
-      
-      // Clear any stored tokens from localStorage
-      localStorage.removeItem('mina_auth_token');
-      
       toast({
         title: 'Signed out',
         description: 'You have been successfully signed out',
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Sign out error:', error);
-      toast({
-        title: 'Sign out error',
-        description: error.message || 'There was a problem signing out',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // Direct login using the backend (bypassing Firebase) for demo user
-  const signInWithDemo = async (username: string, password: string) => {
-    try {
-      setIsLoading(true);
-      
-      // Make direct call to our backend login endpoint
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Login failed');
-      }
-
-      // Get token and user data
-      const data = await response.json();
-      
-      console.log('Demo login successful, received token:', data.token ? 'Token received' : 'No token');
-      console.log('Demo user data:', data.user);
-      
-      // Store the token for future requests
-      if (!data.token) {
-        console.error('No token received from demo login!');
-        throw new Error('Authentication failed - no token received');
-      }
-      
-      ApiService.setToken(data.token);
-      console.log('Token stored in localStorage:', !!localStorage.getItem('mina_auth_token'));
-      
-      // Create a mock AuthUser from the demo user data
-      const demoUser: AuthUser = {
-        uid: data.user.uid || 'demo-user',
-        email: data.user.email || 'demo@example.com',
-        displayName: data.user.displayName || 'Demo User',
-        photoURL: null,
-        isAnonymous: false,
-        metadata: {
-          creationTime: new Date().toISOString(),
-          lastSignInTime: new Date().toISOString(),
-        },
-        providerData: []
-      };
-      
-      // Update the user state
-      setUser(demoUser);
-      
-      // CRITICAL: Make sure the queryClient has the auth headers before making any requests
-      ApiService.updateAuthHeaders();
-      
-      // Test authentication headers
-      const testHeaders = ApiService.getAuthHeaders();
-      console.log('Auth headers set:', Object.keys(testHeaders).length > 0 ? 'Yes' : 'No');
-      
-      // Refresh data after authentication
-      queryClient.invalidateQueries({ queryKey: ['/api/notes'] });
-      
-      toast({
-        title: 'Demo Login Successful',
-        description: 'Welcome to Mina Notes!',
-      });
-      
-      return demoUser;
-    } catch (error: any) {
-      console.error('Demo login error:', error);
-      toast({
-        title: 'Demo login failed',
-        description: error.message || 'Please check your credentials and try again',
-        variant: 'destructive',
-      });
-      return null;
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -279,7 +139,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     createAccount,
     signInWithGoogle,
     signOut,
-    signInWithDemo,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

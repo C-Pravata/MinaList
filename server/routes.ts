@@ -78,50 +78,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Direct login endpoint with username/password for development
-  app.post('/api/auth/login', async (req: Request, res: Response) => {
-    try {
-      const { username, password } = req.body;
-      
-      if (!username || !password) {
-        return res.status(400).json({ message: 'Username and password are required' });
-      }
-      
-      // Find user by username
-      const user = await storage.getUserByUsername(username);
-      if (!user) {
-        return res.status(401).json({ message: 'Invalid username or password' });
-      }
-      
-      // Check password (basic check for demo user)
-      if (username === 'demo' && password === 'password123') {
-        // Issue token for demo user
-        const token = generateToken({ 
-          uid: 'demo-' + user.id, 
-          email: user.email || 'demo@example.com',
-          displayName: user.username 
-        });
-        
-        return res.json({ 
-          token, 
-          user: { 
-            id: user.id,
-            uid: 'demo-' + user.id,
-            email: user.email, 
-            displayName: user.username 
-          } 
-        });
-      }
-      
-      // In a real app, you'd verify the hashed password here
-      
-      return res.status(401).json({ message: 'Invalid username or password' });
-    } catch (error) {
-      console.error('Login error:', error);
-      res.status(500).json({ message: 'Login failed' });
-    }
-  });
-  
   // Get current user
   app.get('/api/user', authenticateRequired, (req: Request, res: Response) => {
     res.json({

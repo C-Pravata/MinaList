@@ -17,31 +17,20 @@ export class ApiService {
    */
   static async verifyAuth(firebaseUser: AuthUser): Promise<{ token: string, user: any }> {
     try {
-      // Use our improved apiRequest function from queryClient
       const response = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify({
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           displayName: firebaseUser.displayName,
-          photoURL: firebaseUser.photoURL,
         }),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.message || 'Failed to verify authentication with backend';
-        } catch (e) {
-          errorMessage = errorText || 'Failed to verify authentication with backend';
-        }
-        throw new Error(errorMessage);
+        throw new Error('Failed to verify authentication with backend');
       }
 
       const data = await response.json();
@@ -49,7 +38,6 @@ export class ApiService {
       // Store token
       this.setToken(data.token);
       
-      console.log('Successfully verified authentication with backend');
       return data;
     } catch (error) {
       console.error('Auth verification error:', error);
@@ -94,18 +82,15 @@ export class ApiService {
    */
   static updateAuthHeaders(): void {
     // Add Authorization header to all future queries
-    const headers = this.getAuthHeaders();
-    console.log('Updating auth headers:', Object.keys(headers).length ? 'Token found' : 'No token');
-    
     queryClient.setDefaultOptions({
       queries: {
         meta: {
-          headers: headers,
+          headers: this.getAuthHeaders(),
         },
       },
       mutations: {
         meta: {
-          headers: headers,
+          headers: this.getAuthHeaders(),
         },
       },
     });

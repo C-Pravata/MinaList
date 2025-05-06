@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import FirebaseSetupInstructions from "@/components/FirebaseSetupInstructions";
@@ -44,33 +44,9 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("login");
-  const [isFirebaseConfigError, setIsFirebaseConfigError] = useState(false);
-  const { user, signInWithEmail, createAccount, signInWithGoogle, signInWithDemo } = useAuth();
+  const { user, signInWithEmail, createAccount, signInWithGoogle } = useAuth();
   const [_, navigate] = useLocation();
   const { toast } = useToast();
-  const [isDemoLoading, setIsDemoLoading] = useState(false);
-
-  // Check if Firebase is properly configured
-  useEffect(() => {
-    const checkFirebaseConfig = async () => {
-      try {
-        // Attempt to check if Firebase is properly configured
-        const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
-        const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
-        const appId = import.meta.env.VITE_FIREBASE_APP_ID;
-        
-        if (!apiKey || !projectId || !appId) {
-          setIsFirebaseConfigError(true);
-        }
-      } catch (error) {
-        // If there's any error with Firebase config, set the flag
-        setIsFirebaseConfigError(true);
-      }
-    };
-    
-    // Run the check once
-    checkFirebaseConfig();
-  }, []);
 
   // If user is already logged in, redirect to home
   if (user) {
@@ -138,47 +114,21 @@ export default function AuthPage() {
 
   // Handle Google sign-in
   const handleGoogleSignIn = async () => {
-    if (isFirebaseConfigError) {
-      toast({
-        title: "Firebase not configured",
-        description: "Please use the demo account instead.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     setIsLoading(true);
     setError(null);
     
     try {
-      // Using popup authentication now which returns immediately
       const result = await signInWithGoogle();
       if (result) {
         navigate("/");
       }
-      setIsLoading(false);
     } catch (err: any) {
-      console.error('Google sign-in error:', err);
-      setError(err.message || "Sign-in failed. Please try again.");
-      setIsLoading(false);
-    }
-  };
-  
-  // Handle demo login
-  const handleDemoLogin = async () => {
-    setIsDemoLoading(true);
-    setError(null);
-    
-    try {
-      const result = await signInWithDemo('demo', 'password123');
-      if (result) {
-        navigate("/");
+      // Don't show error for user closing the popup
+      if (err.code !== "auth/popup-closed-by-user") {
+        setError(err.message || "Google sign-in failed. Please try again.");
       }
-    } catch (err: any) {
-      console.error('Demo login error:', err);
-      setError(err.message || "Demo login failed. Please try again.");
     } finally {
-      setIsDemoLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -259,24 +209,7 @@ export default function AuthPage() {
                 </div>
               </div>
               
-              {/* Firebase status notice if needed */}
-              {isFirebaseConfigError && (
-                <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-3">
-                  <p className="text-amber-800 text-sm flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    Firebase authentication is unavailable. Use demo account instead.
-                  </p>
-                </div>
-              )}
-              
-              <Button 
-                variant="outline" 
-                className="w-full mb-2" 
-                onClick={handleGoogleSignIn} 
-                disabled={isLoading || isDemoLoading || isFirebaseConfigError}
-              >
+              <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading}>
                 {isLoading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -288,26 +221,6 @@ export default function AuthPage() {
                   </svg>
                 )}
                 {isLoading ? "Signing in..." : "Sign in with Google"}
-              </Button>
-              
-              {/* Demo user button */}
-              <Button 
-                variant="secondary" 
-                className="w-full" 
-                onClick={handleDemoLogin} 
-                disabled={isLoading || isDemoLoading}
-              >
-                {isDemoLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="9" cy="7" r="4"></circle>
-                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                  </svg>
-                )}
-                {isDemoLoading ? "Signing in..." : "Use Demo Account"}
               </Button>
             </TabsContent>
 
@@ -395,24 +308,7 @@ export default function AuthPage() {
                 </div>
               </div>
               
-              {/* Firebase status notice if needed */}
-              {isFirebaseConfigError && (
-                <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-3">
-                  <p className="text-amber-800 text-sm flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    Firebase authentication is unavailable. Use demo account instead.
-                  </p>
-                </div>
-              )}
-              
-              <Button 
-                variant="outline" 
-                className="w-full mb-2" 
-                onClick={handleGoogleSignIn} 
-                disabled={isLoading || isDemoLoading || isFirebaseConfigError}
-              >
+              <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading}>
                 {isLoading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -424,26 +320,6 @@ export default function AuthPage() {
                   </svg>
                 )}
                 {isLoading ? "Signing in..." : "Sign up with Google"}
-              </Button>
-              
-              {/* Demo user button */}
-              <Button 
-                variant="secondary" 
-                className="w-full" 
-                onClick={handleDemoLogin} 
-                disabled={isLoading || isDemoLoading}
-              >
-                {isDemoLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="9" cy="7" r="4"></circle>
-                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                  </svg>
-                )}
-                {isDemoLoading ? "Signing in..." : "Use Demo Account"}
               </Button>
             </TabsContent>
           </Tabs>

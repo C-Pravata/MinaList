@@ -2,14 +2,10 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
-  signOut as firebaseSignOut,
+  signOut,
   onAuthStateChanged,
   User as FirebaseUser,
-  updateProfile,
-  Auth,
-  AuthError
+  updateProfile
 } from 'firebase/auth';
 import { auth, googleProvider } from '@/firebase/config';
 
@@ -18,40 +14,9 @@ export interface AuthUser {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  // Additional fields needed for demo user
-  isAnonymous?: boolean;
-  metadata?: {
-    creationTime?: string;
-    lastSignInTime?: string;
-  };
-  providerData?: any[];
 }
 
 class FirebaseAuthService {
-  private redirectResultProcessed = false;
-  private auth: Auth;
-  private firebaseAvailable: boolean;
-  
-  constructor() {
-    this.auth = auth;
-    
-    // Check if Firebase is properly configured
-    try {
-      const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
-      const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
-      const appId = import.meta.env.VITE_FIREBASE_APP_ID;
-      
-      this.firebaseAvailable = !!(apiKey && projectId && appId && this.auth);
-      
-      if (!this.firebaseAvailable) {
-        console.warn('Firebase configuration incomplete - some authentication methods will be unavailable');
-      }
-    } catch (e) {
-      console.error('Error checking Firebase configuration:', e);
-      this.firebaseAvailable = false;
-    }
-  }
-  
   // Current user conversion from Firebase user to our simpler AuthUser type
   convertUser(user: FirebaseUser | null): AuthUser | null {
     if (!user) return null;
@@ -66,28 +31,7 @@ class FirebaseAuthService {
   
   // Check if authentication is available
   isAuthAvailable(): boolean {
-    return this.firebaseAvailable;
-  }
-  
-  // Process any pending redirect result on app start
-  async processRedirectResult(): Promise<AuthUser | null> {
-    if (this.redirectResultProcessed) {
-      return null;
-    }
-    
-    this.redirectResultProcessed = true;
-    
-    try {
-      const result = await getRedirectResult(this.auth);
-      if (result) {
-        console.log('Processed redirect result:', result.user);
-        return this.convertUser(result.user);
-      }
-      return null;
-    } catch (error) {
-      console.error('Error processing redirect result:', error);
-      return null;
-    }
+    return true; // We already verified Firebase config is available
   }
   
   // Email sign-in
@@ -97,11 +41,11 @@ class FirebaseAuthService {
     }
     
     try {
-      const result = await signInWithEmailAndPassword(this.auth, email, password);
+      const result = await signInWithEmailAndPassword(auth, email, password);
       return this.convertUser(result.user);
     } catch (error: any) {
       console.error('Email sign-in error:', error);
-      throw new Error(this.getAuthErrorMessage(error));
+      throw error;
     }
   }
   
@@ -112,7 +56,7 @@ class FirebaseAuthService {
     }
     
     try {
-      const result = await createUserWithEmailAndPassword(this.auth, email, password);
+      const result = await createUserWithEmailAndPassword(auth, email, password);
       
       // Set the display name
       if (displayName) {
@@ -122,29 +66,22 @@ class FirebaseAuthService {
       return this.convertUser(result.user);
     } catch (error: any) {
       console.error('Create account error:', error);
-      throw new Error(this.getAuthErrorMessage(error));
+      throw error;
     }
   }
   
-  // Google sign-in with popup (better for iframe environments like Replit)
+  // Google sign-in
   async signInWithGoogle(): Promise<AuthUser | null> {
     if (!this.isAuthAvailable()) {
       throw new Error('Authentication not available - check Firebase configuration');
     }
     
     try {
-      // Use popup instead of redirect for better compatibility in Replit
-      const result = await signInWithPopup(this.auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
       return this.convertUser(result.user);
     } catch (error: any) {
-      // Don't throw for user cancellations
-      if (error.code === 'auth/popup-closed-by-user') {
-        console.log('User closed the popup');
-        return null;
-      }
-      
       console.error('Google sign-in error:', error);
-      throw new Error(this.getAuthErrorMessage(error));
+      throw error;
     }
   }
   
@@ -155,7 +92,7 @@ class FirebaseAuthService {
     }
     
     try {
-      await firebaseSignOut(this.auth);
+      await signOut(auth);
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
@@ -171,7 +108,7 @@ class FirebaseAuthService {
         return;
       }
       
-      const unsubscribe = onAuthStateChanged(this.auth, (user: FirebaseUser | null) => {
+      const unsubscribe = onAuthStateChanged(auth, (user: FirebaseUser | null) => {
         unsubscribe();
         resolve(this.convertUser(user));
       });
@@ -186,7 +123,7 @@ class FirebaseAuthService {
       return () => {};
     }
     
-    const unsubscribe = onAuthStateChanged(this.auth, (user: FirebaseUser | null) => {
+    const unsubscribe = onAuthStateChanged(auth, (user: FirebaseUser | null) => {
       callback(this.convertUser(user));
     });
     
@@ -205,9 +142,7 @@ class FirebaseAuthService {
       'auth/account-exists-with-different-credential': 'Account already exists with a different sign-in method',
       'auth/popup-closed-by-user': 'Sign-in was cancelled',
       'auth/operation-not-allowed': 'This sign-in method is not enabled',
-      'auth/network-request-failed': 'Network error, please check your connection',
-      'auth/popup-blocked': 'The sign-in popup was blocked by your browser. Please allow popups for this site.',
-      'auth/unauthorized-domain': 'This domain is not authorized for OAuth operations. Please add it to your Firebase authorized domains.'
+      'auth/network-request-failed': 'Network error, please check your connection'
     };
     
     return errorMap[error.code] || error.message || 'An unknown error occurred';
