@@ -217,6 +217,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Update the user state
       setUser(demoUser);
       
+      // CRITICAL: Make sure the queryClient has the auth headers before making any requests
+      ApiService.updateAuthHeaders();
+      
       // Refresh data after authentication
       queryClient.invalidateQueries({ queryKey: ['/api/notes'] });
       

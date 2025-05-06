@@ -94,15 +94,18 @@ export class ApiService {
    */
   static updateAuthHeaders(): void {
     // Add Authorization header to all future queries
+    const headers = this.getAuthHeaders();
+    console.log('Updating auth headers:', Object.keys(headers).length ? 'Token found' : 'No token');
+    
     queryClient.setDefaultOptions({
       queries: {
         meta: {
-          headers: this.getAuthHeaders(),
+          headers: headers,
         },
       },
       mutations: {
         meta: {
-          headers: this.getAuthHeaders(),
+          headers: headers,
         },
       },
     });

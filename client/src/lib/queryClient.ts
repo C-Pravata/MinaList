@@ -36,6 +36,12 @@ export async function apiRequest(
     headers["Content-Type"] = "application/json";
   }
   
+  // Try to get the auth token from localStorage
+  const token = localStorage.getItem('mina_auth_token');
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  
   // Add custom headers
   if (customHeaders) {
     Object.assign(headers, customHeaders);
@@ -64,6 +70,12 @@ export const getQueryFn: <T>(options: {
     // Add any headers from meta if available
     if (meta?.headers) {
       Object.assign(headers, meta.headers);
+    }
+    
+    // Ensure Authorization header is included
+    const token = localStorage.getItem('mina_auth_token');
+    if (token && !headers['Authorization']) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
     
     const res = await fetch(queryKey[0] as string, {
