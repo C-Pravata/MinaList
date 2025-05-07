@@ -42,6 +42,14 @@ const upload = multer({
   }
 });
 
+// Middleware to check if user is authenticated
+const isAuthenticated = (req: Request, res: Response, next: express.NextFunction) => {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  return res.status(401).json({ message: 'Unauthorized. Please log in.' });
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
   setupAuth(app);
@@ -50,7 +58,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   // Get all notes
-  app.get('/api/notes', async (req: Request, res: Response) => {
+  app.get('/api/notes', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const notes = await storage.getNotes();
       res.json(notes);
