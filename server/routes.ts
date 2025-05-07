@@ -273,7 +273,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update an AI chat
-  app.put('/api/ai-chats/:id', async (req: Request, res: Response) => {
+  app.put('/api/ai-chats/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -298,7 +298,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get a specific AI chat
-  app.get('/api/ai-chats/:id', async (req: Request, res: Response) => {
+  app.get('/api/ai-chats/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {

@@ -1,37 +1,60 @@
 import { useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
 import { Redirect } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useAuth } from "@/hooks/use-auth";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { insertUserSchema } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 
-const loginSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+// Login schema only requires username and password
+const loginSchema = insertUserSchema.pick({
+  username: true,
+  password: true,
 });
 
-const registerSchema = loginSchema.extend({
-  email: z.string().email("Please enter a valid email").optional(),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  confirmPassword: z.string(),
-}).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
-});
+// Register schema requires username, password, and adds password confirmation
+const registerSchema = insertUserSchema
+  .pick({
+    username: true,
+    password: true,
+    email: true,
+  })
+  .extend({
+    confirmPassword: z.string().min(6, {
+      message: "Password must be at least 6 characters.",
+    }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
 
 type LoginValues = z.infer<typeof loginSchema>;
 type RegisterValues = z.infer<typeof registerSchema>;
 
 export default function AuthPage() {
+  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const { user, loginMutation, registerMutation } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>("login");
 
   const loginForm = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -56,37 +79,55 @@ export default function AuthPage() {
   };
 
   const onRegisterSubmit = (values: RegisterValues) => {
-    const { confirmPassword, ...credentials } = values;
-    registerMutation.mutate(credentials);
+    // Extract confirmPassword from values before sending
+    const { confirmPassword, ...registerData } = values;
+    registerMutation.mutate(registerData);
   };
 
-  // Redirect if already logged in
+  // If user is already authenticated, redirect to home
   if (user) {
     return <Redirect to="/" />;
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left column: auth form */}
-      <div className="flex flex-1 items-center justify-center p-6 bg-background">
-        <div className="w-full max-w-md">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+    <div className="flex min-h-screen bg-background">
+      {/* Left side: Auth form */}
+      <div className="flex flex-col justify-center w-full md:w-1/2 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-md">
+          <div className="mb-8 text-center">
+            <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl text-purple-500">
+              Mina
+            </h1>
+            <p className="mt-2 text-lg text-muted-foreground">
+              Your personal note-taking assistant
+            </p>
+          </div>
+
+          <Tabs
+            defaultValue="login"
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as "login" | "register")}
+            className="w-full"
+          >
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="login">
               <Card>
                 <CardHeader>
-                  <CardTitle>Login to Mina</CardTitle>
+                  <CardTitle>Login</CardTitle>
                   <CardDescription>
                     Enter your credentials to access your notes
                   </CardDescription>
                 </CardHeader>
-                <Form {...loginForm}>
-                  <form onSubmit={loginForm.handleSubmit(onLoginSubmit)}>
-                    <CardContent className="space-y-4">
+                <CardContent>
+                  <Form {...loginForm}>
+                    <form
+                      onSubmit={loginForm.handleSubmit(onLoginSubmit)}
+                      className="space-y-4"
+                    >
                       <FormField
                         control={loginForm.control}
                         name="username"
@@ -94,7 +135,10 @@ export default function AuthPage() {
                           <FormItem>
                             <FormLabel>Username</FormLabel>
                             <FormControl>
-                              <Input placeholder="username" {...field} />
+                              <Input
+                                placeholder="Enter your username"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -107,15 +151,21 @@ export default function AuthPage() {
                           <FormItem>
                             <FormLabel>Password</FormLabel>
                             <FormControl>
-                              <Input type="password" placeholder="******" {...field} />
+                              <Input
+                                type="password"
+                                placeholder="Enter your password"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                    </CardContent>
-                    <CardFooter>
-                      <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={loginMutation.isPending}
+                      >
                         {loginMutation.isPending ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -125,23 +175,34 @@ export default function AuthPage() {
                           "Login"
                         )}
                       </Button>
-                    </CardFooter>
-                  </form>
-                </Form>
+                    </form>
+                  </Form>
+                </CardContent>
+                <CardFooter className="flex justify-center">
+                  <Button
+                    variant="link"
+                    onClick={() => setActiveTab("register")}
+                  >
+                    Don't have an account? Register
+                  </Button>
+                </CardFooter>
               </Card>
             </TabsContent>
-            
+
             <TabsContent value="register">
               <Card>
                 <CardHeader>
-                  <CardTitle>Create an account</CardTitle>
+                  <CardTitle>Create Account</CardTitle>
                   <CardDescription>
-                    Sign up to start using Mina notes
+                    Register to start taking notes with Mina
                   </CardDescription>
                 </CardHeader>
-                <Form {...registerForm}>
-                  <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)}>
-                    <CardContent className="space-y-4">
+                <CardContent>
+                  <Form {...registerForm}>
+                    <form
+                      onSubmit={registerForm.handleSubmit(onRegisterSubmit)}
+                      className="space-y-4"
+                    >
                       <FormField
                         control={registerForm.control}
                         name="username"
@@ -149,7 +210,10 @@ export default function AuthPage() {
                           <FormItem>
                             <FormLabel>Username</FormLabel>
                             <FormControl>
-                              <Input placeholder="username" {...field} />
+                              <Input
+                                placeholder="Choose a username"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -160,9 +224,13 @@ export default function AuthPage() {
                         name="email"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Email (optional)</FormLabel>
+                            <FormLabel>Email</FormLabel>
                             <FormControl>
-                              <Input type="email" placeholder="name@example.com" {...field} />
+                              <Input
+                                placeholder="Enter your email"
+                                type="email"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -175,7 +243,11 @@ export default function AuthPage() {
                           <FormItem>
                             <FormLabel>Password</FormLabel>
                             <FormControl>
-                              <Input type="password" placeholder="******" {...field} />
+                              <Input
+                                type="password"
+                                placeholder="Choose a password"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -188,15 +260,21 @@ export default function AuthPage() {
                           <FormItem>
                             <FormLabel>Confirm Password</FormLabel>
                             <FormControl>
-                              <Input type="password" placeholder="******" {...field} />
+                              <Input
+                                type="password"
+                                placeholder="Confirm your password"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                    </CardContent>
-                    <CardFooter>
-                      <Button type="submit" className="w-full" disabled={registerMutation.isPending}>
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={registerMutation.isPending}
+                      >
                         {registerMutation.isPending ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -206,50 +284,52 @@ export default function AuthPage() {
                           "Register"
                         )}
                       </Button>
-                    </CardFooter>
-                  </form>
-                </Form>
+                    </form>
+                  </Form>
+                </CardContent>
+                <CardFooter className="flex justify-center">
+                  <Button variant="link" onClick={() => setActiveTab("login")}>
+                    Already have an account? Login
+                  </Button>
+                </CardFooter>
               </Card>
             </TabsContent>
           </Tabs>
         </div>
       </div>
-      
-      {/* Right column: hero section */}
-      <div className="hidden md:flex flex-1 items-center justify-center p-10 bg-primary/5">
-        <div className="max-w-md text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-primary mb-4">
-            Welcome to Mina
-          </h1>
-          <p className="text-lg text-muted-foreground mb-8">
-            The modern, AI-enhanced note-taking app for your ideas, thoughts, and plans.
-          </p>
-          <div className="space-y-4">
-            <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-4">
-                <span className="text-primary">✓</span>
+
+      {/* Right side: Hero section */}
+      <div className="hidden md:block md:w-1/2 bg-purple-700">
+        <div className="flex flex-col justify-center h-full p-8 text-white">
+          <h2 className="text-3xl font-bold mb-4">
+            Your ideas, organized and enhanced
+          </h2>
+          <ul className="space-y-4 text-lg">
+            <li className="flex items-start">
+              <div className="mr-2 mt-1 h-5 w-5 rounded-full bg-white flex items-center justify-center text-purple-700 font-bold">
+                ✓
               </div>
-              <p className="text-left text-muted-foreground">Take notes with rich text formatting</p>
-            </div>
-            <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-4">
-                <span className="text-primary">✓</span>
+              <span>Access your notes across all your devices</span>
+            </li>
+            <li className="flex items-start">
+              <div className="mr-2 mt-1 h-5 w-5 rounded-full bg-white flex items-center justify-center text-purple-700 font-bold">
+                ✓
               </div>
-              <p className="text-left text-muted-foreground">Use AI assistant to enhance your notes</p>
-            </div>
-            <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-4">
-                <span className="text-primary">✓</span>
+              <span>AI-powered note assistant</span>
+            </li>
+            <li className="flex items-start">
+              <div className="mr-2 mt-1 h-5 w-5 rounded-full bg-white flex items-center justify-center text-purple-700 font-bold">
+                ✓
               </div>
-              <p className="text-left text-muted-foreground">Share your notes across devices</p>
-            </div>
-            <div className="flex items-center">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-4">
-                <span className="text-primary">✓</span>
+              <span>Secure and private</span>
+            </li>
+            <li className="flex items-start">
+              <div className="mr-2 mt-1 h-5 w-5 rounded-full bg-white flex items-center justify-center text-purple-700 font-bold">
+                ✓
               </div>
-              <p className="text-left text-muted-foreground">Voice-to-text for easy note-taking</p>
-            </div>
-          </div>
+              <span>Voice to text and seamless sharing</span>
+            </li>
+          </ul>
         </div>
       </div>
     </div>

@@ -6,6 +6,8 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
+import { fromZodError } from "zod-validation-error";
+import { insertUserSchema } from "@shared/schema";
 
 declare global {
   namespace Express {
@@ -29,14 +31,16 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
+  // Set secure session cookies in production
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "mina-notes-secret",
+    secret: process.env.SESSION_SECRET || "mina-notetaking-app-secret",
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
     cookie: {
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 1000 * 60 * 60 * 24 * 7 // 1 week
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     }
   };
 
@@ -60,10 +64,7 @@ export function setupAuth(app: Express) {
     }),
   );
 
-  passport.serializeUser((user, done) => {
-    done(null, user.id);
-  });
-  
+  passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
@@ -75,36 +76,50 @@ export function setupAuth(app: Express) {
 
   app.post("/api/register", async (req, res, next) => {
     try {
+      // Validate request body
+      const result = insertUserSchema.safeParse(req.body);
+      if (!result.success) {
+        const validationError = fromZodError(result.error);
+        return res.status(400).json({ message: validationError.message });
+      }
+
+      // Check if username already exists
       const existingUser = await storage.getUserByUsername(req.body.username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
       }
 
-      const user = await storage.createUser({
-        ...req.body,
-        password: await hashPassword(req.body.password),
-      });
+      // Create user with hashed password
+      const hashedPassword = await hashPassword(req.body.password);
+      const userData = {
+        ...result.data,
+        password: hashedPassword
+      };
 
+      const user = await storage.createUser(userData);
+
+      // Log in the new user automatically
       req.login(user, (err) => {
         if (err) return next(err);
-        // Omit password from response
+        // Return user data (exclude password)
         const { password, ...userWithoutPassword } = user;
         res.status(201).json(userWithoutPassword);
       });
     } catch (error) {
-      next(error);
+      console.error("Registration error:", error);
+      res.status(500).json({ message: "An error occurred during registration" });
     }
   });
 
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err: Error | null, user: Express.User | false, info: any) => {
+    passport.authenticate("local", (err, user, info) => {
       if (err) return next(err);
       if (!user) {
         return res.status(401).json({ message: "Invalid username or password" });
       }
-      req.login(user, (err: Error | null) => {
+      req.login(user, (err) => {
         if (err) return next(err);
-        // Omit password from response
+        // Return user data (exclude password)
         const { password, ...userWithoutPassword } = user;
         res.status(200).json(userWithoutPassword);
       });
@@ -122,7 +137,7 @@ export function setupAuth(app: Express) {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Not authenticated" });
     }
-    // Omit password from response
+    // Return user data (exclude password)
     const { password, ...userWithoutPassword } = req.user;
     res.json(userWithoutPassword);
   });

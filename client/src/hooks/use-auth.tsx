@@ -14,10 +14,11 @@ type AuthContextType = {
   error: Error | null;
   loginMutation: UseMutationResult<Omit<User, "password">, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
-  registerMutation: UseMutationResult<Omit<User, "password">, Error, InsertUser>;
+  registerMutation: UseMutationResult<Omit<User, "password">, Error, RegisterData>;
 };
 
 type LoginData = Pick<InsertUser, "username" | "password">;
+type RegisterData = InsertUser;
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } = useQuery<User | null, Error>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
+    retry: false
   });
 
   const loginMutation = useMutation({
@@ -39,7 +41,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user) => {
       queryClient.setQueryData(["/api/user"], user);
-      queryClient.invalidateQueries({ queryKey: ["/api/notes"] });
       toast({
         title: "Login successful",
         description: `Welcome back, ${user.username}!`,
@@ -48,14 +49,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onError: (error: Error) => {
       toast({
         title: "Login failed",
-        description: error.message || "Invalid credentials",
+        description: error.message || "Invalid username or password",
         variant: "destructive",
       });
     },
   });
 
   const registerMutation = useMutation({
-    mutationFn: async (credentials: InsertUser) => {
+    mutationFn: async (credentials: RegisterData) => {
       const res = await apiRequest("POST", "/api/register", credentials);
       return await res.json();
     },
@@ -63,13 +64,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(["/api/user"], user);
       toast({
         title: "Registration successful",
-        description: `Welcome, ${user.username}!`,
+        description: `Welcome to Mina, ${user.username}!`,
       });
     },
     onError: (error: Error) => {
       toast({
         title: "Registration failed",
-        description: error.message || "Unable to register account",
+        description: error.message || "Could not create account",
         variant: "destructive",
       });
     },
@@ -81,9 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
+      queryClient.invalidateQueries({ queryKey: ["/api/notes"] });
       toast({
         title: "Logged out",
-        description: "You have been logged out successfully",
+        description: "You have been successfully logged out",
       });
     },
     onError: (error: Error) => {
@@ -98,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user: user ?? null,
+        user: user || null,
         isLoading,
         error,
         loginMutation,
