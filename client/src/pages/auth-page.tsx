@@ -37,9 +37,9 @@ const registerSchema = insertUserSchema
   .pick({
     username: true,
     password: true,
-    email: true,
   })
   .extend({
+    email: z.string().email("Please enter a valid email address").optional(),
     confirmPassword: z.string().min(6, {
       message: "Password must be at least 6 characters.",
     }),
@@ -230,6 +230,7 @@ export default function AuthPage() {
                                 placeholder="Enter your email"
                                 type="email"
                                 {...field}
+                                value={field.value || ''}
                               />
                             </FormControl>
                             <FormMessage />

@@ -1,6 +1,7 @@
 import { Search, X, Check, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
+import UserProfile from "@/components/UserProfile";
 
 interface HeaderProps {
   isEditing: boolean;
@@ -50,6 +51,7 @@ export default function Header({ isEditing, onDone, onCancel }: HeaderProps) {
               <Search className="h-[18px] w-[18px] text-foreground/80" />
             </Button>
             <ThemeToggle />
+            <UserProfile />
           </>
         )}
       </div>
