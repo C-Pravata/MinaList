@@ -68,7 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get single note
-  app.get('/api/notes/:id', async (req: Request, res: Response) => {
+  app.get('/api/notes/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -87,7 +87,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a new note
-  app.post('/api/notes', async (req: Request, res: Response) => {
+  app.post('/api/notes', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const result = insertNoteSchema.safeParse(req.body);
       if (!result.success) {
@@ -103,7 +103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a note
-  app.put('/api/notes/:id', async (req: Request, res: Response) => {
+  app.put('/api/notes/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -128,7 +128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a note
-  app.delete('/api/notes/:id', async (req: Request, res: Response) => {
+  app.delete('/api/notes/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -147,7 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload image for a note
-  app.post('/api/upload', upload.single('image'), (req: Request, res: Response) => {
+  app.post('/api/upload', isAuthenticated, upload.single('image'), (req: Request, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded' });
@@ -164,7 +164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Save attachment for a note
-  app.post('/api/notes/:noteId/attachments', async (req: Request, res: Response) => {
+  app.post('/api/notes/:noteId/attachments', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const noteId = parseInt(req.params.noteId);
       if (isNaN(noteId)) {
@@ -194,7 +194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all attachments for a note
-  app.get('/api/notes/:noteId/attachments', async (req: Request, res: Response) => {
+  app.get('/api/notes/:noteId/attachments', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const noteId = parseInt(req.params.noteId);
       if (isNaN(noteId)) {
@@ -209,7 +209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete an attachment
-  app.delete('/api/attachments/:id', async (req: Request, res: Response) => {
+  app.delete('/api/attachments/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -228,7 +228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get AI chat history for a note
-  app.get('/api/notes/:noteId/ai-chats', async (req: Request, res: Response) => {
+  app.get('/api/notes/:noteId/ai-chats', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const noteId = parseInt(req.params.noteId);
       if (isNaN(noteId)) {
@@ -243,7 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a new AI chat for a note
-  app.post('/api/notes/:noteId/ai-chats', async (req: Request, res: Response) => {
+  app.post('/api/notes/:noteId/ai-chats', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const noteId = parseInt(req.params.noteId);
       if (isNaN(noteId)) {
