@@ -9,7 +9,6 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   email: text("email"),
   avatar_url: text("avatar_url"),
-  firebase_uid: text("firebase_uid").unique(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -28,18 +27,8 @@ export const notes = pgTable("notes", {
 });
 
 // Forward declarations - will be set after table definitions
-export const userRelations = relations(users, ({ many }) => ({
-  notes: many(notes)
-}));
-
-export const noteRelations = relations(notes, ({ one, many }) => ({
-  user: one(users, {
-    fields: [notes.user_id],
-    references: [users.id]
-  }),
-  aiChats: many(aiChats),
-  attachments: many(attachments)
-}));
+export let userRelations: any;
+export let noteRelations: any;
 
 export const aiChats = pgTable("ai_chats", {
   id: serial("id").primaryKey(),
@@ -77,7 +66,6 @@ export const insertUserSchema = createInsertSchema(users).pick({
   password: true,
   email: true,
   avatar_url: true,
-  firebase_uid: true,
 });
 
 export const insertNoteSchema = createInsertSchema(notes).pick({
@@ -127,4 +115,16 @@ export type AiChat = typeof aiChats.$inferSelect;
 export type InsertAttachment = z.infer<typeof insertAttachmentSchema>;
 export type Attachment = typeof attachments.$inferSelect;
 
-// We've already set up the relations above, no need to redefine them
+// Set up relations after all tables are defined
+userRelations = relations(users, ({ many }) => ({
+  notes: many(notes)
+}));
+
+noteRelations = relations(notes, ({ one, many }) => ({
+  user: one(users, {
+    fields: [notes.user_id],
+    references: [users.id],
+  }),
+  aiChats: many(aiChats),
+  attachments: many(attachments)
+}));
