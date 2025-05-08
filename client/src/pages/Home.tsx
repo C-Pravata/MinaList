@@ -27,10 +27,11 @@ export default function Home() {
       setActiveNote(newNote);
       setIsEditing(true);
       
-      toast({
-        title: "New note created",
-        description: "Start writing your thoughts...",
-      });
+      // Optional: Toast can be removed or changed, as user is taken directly to editor
+      // toast({
+      //   title: "New note ready",
+      //   description: "Start writing...",
+      // });
     } catch (error) {
       toast({
         title: "Error",
@@ -57,20 +58,17 @@ export default function Home() {
   };
   
   const handleCancel = async () => {
-    // If it's a new note with no content, delete it
-    if (activeNote && activeNote.content === "<p>Start writing...</p>") {
-      try {
-        await deleteNote(activeNote.id);
-        toast({
-          title: "Empty note deleted",
-          description: "The empty note has been removed",
-        });
-      } catch (error) {
-        console.error("Failed to delete empty note", error);
-      }
-    }
-    setIsEditing(false);
-    setActiveNote(null);
+    // --- Overhauled Cancel Logic ---
+    // Cancel should simply exit the editing mode and return to the list view.
+    // It should NOT delete any notes.
+    // Auto-saving in the editor should handle persistence.
+    // If we wanted to discard *truly untouched* new notes, it would need more complex state.
+    
+    setIsEditing(false); // Exit editing mode
+    setActiveNote(null); // Deselect note, effectively returning to the list
+
+    // Optional: Maybe add a different toast message for cancel if needed?
+    // toast({ title: "Editing cancelled" }); 
   };
 
   return (

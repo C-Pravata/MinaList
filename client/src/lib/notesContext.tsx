@@ -2,7 +2,10 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Note, InsertNote, UpdateNote } from "@shared/schema";
+import { Note, InsertNote as FullInsertNote, UpdateNote } from "@shared/schema";
+
+// Client-side payload for creating a note does not include user_id
+type ClientInsertNote = Omit<FullInsertNote, "user_id">;
 
 interface NotesContextType {
   notes: Note[];
@@ -23,7 +26,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
 
   // Fetch all notes
-  const { data: notes = [], isLoading } = useQuery({
+  const { data: notes = [], isLoading } = useQuery<Note[]>({
     queryKey: ['/api/notes'],
     staleTime: 1000 * 60, // 1 minute
   });
@@ -31,12 +34,16 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   // Create note mutation
   const createNoteMutation = useMutation({
     mutationFn: async () => {
-      const note: InsertNote = {
-        title: "New note",
-        content: "<p>Start writing...</p>",
+      // Use ClientInsertNote for the payload
+      const notePayload: ClientInsertNote = {
+        title: "", 
+        content: "", 
+        is_pinned: false,
+        tags: null,
+        color: "#ffffff"
       };
       
-      const res = await apiRequest("POST", "/api/notes", note);
+      const res = await apiRequest("POST", "/api/notes", notePayload);
       return res.json();
     },
     onSuccess: () => {

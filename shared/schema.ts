@@ -27,7 +27,7 @@ export const notes = sqliteTable("notes", {
   is_pinned: integer("is_pinned", { mode: "boolean" }).default(false),
   tags: text("tags", { mode: "json" }).$type<string[]>(), // Storing array as JSON string
   color: text("color").default("#ffffff"),
-  user_id: integer("user_id"), // Assuming this might relate to users.id, add foreignKey if needed
+  user_id: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // Made non-nullable and added foreign key
   created_at: integer("created_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
   updated_at: integer("updated_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
   is_deleted: integer("is_deleted", { mode: "boolean" }).default(false).notNull(),

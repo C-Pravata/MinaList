@@ -19,8 +19,15 @@ export default function NoteEditor() {
   // Initialize editor with active note content when it changes
   useEffect(() => {
     if (activeNote) {
-      setContent(activeNote.content);
-      setTitle(activeNote.title);
+      // Only set content and title if the note has existing content
+      if (activeNote.content || activeNote.title) {
+        setContent(activeNote.content);
+        setTitle(activeNote.title);
+      } else {
+        // For new notes, ensure they start blank
+        setContent("");
+        setTitle("");
+      }
     } else {
       setContent("");
       setTitle("");

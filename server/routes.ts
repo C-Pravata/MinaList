@@ -44,7 +44,7 @@ const upload = multer({
 
 // Middleware to check if user is authenticated
 const isAuthenticated = (req: Request, res: Response, next: express.NextFunction) => {
-  if (req.isAuthenticated()) {
+  if (req.isAuthenticated() && req.user && typeof (req.user as any).id === 'number') {
     return next();
   }
   return res.status(401).json({ message: 'Unauthorized. Please log in.' });
@@ -59,8 +59,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get all notes
   app.get('/api/notes', isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req.user as any)?.id as number;
+    console.log(`[GET /api/notes] Authenticated User ID: ${userId}`);
     try {
-      const notes = await storage.getNotes();
+      const notes = await storage.getNotes(userId);
       res.json(notes);
     } catch (error) {
       res.status(500).json({ message: 'Failed to retrieve notes' });
@@ -69,15 +71,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get single note
   app.get('/api/notes/:id', isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req.user as any)?.id as number;
+    const noteId = parseInt(req.params.id);
+    console.log(`[GET /api/notes/:id] Authenticated User ID: ${userId}, Note ID: ${noteId}`);
     try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      if (isNaN(noteId)) {
         return res.status(400).json({ message: 'Invalid note ID' });
       }
 
-      const note = await storage.getNote(id);
+      const note = await storage.getNote(noteId, userId);
       if (!note) {
-        return res.status(404).json({ message: 'Note not found' });
+        return res.status(404).json({ message: 'Note not found or not authorized' });
       }
 
       res.json(note);
@@ -88,8 +92,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Create a new note
   app.post('/api/notes', isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req.user as any)?.id as number;
+    console.log(`[POST /api/notes] Authenticated User ID: ${userId}`);
     try {
-      const result = insertNoteSchema.safeParse(req.body);
+      const noteData = { ...req.body, user_id: userId };
+      delete noteData.id;
+
+      const result = insertNoteSchema.safeParse(noteData);
       if (!result.success) {
         const validationError = fromZodError(result.error);
         return res.status(400).json({ message: validationError.message });
@@ -104,9 +113,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Update a note
   app.put('/api/notes/:id', isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req.user as any)?.id as number;
+    const noteId = parseInt(req.params.id);
+    console.log(`[PUT /api/notes/:id] Authenticated User ID: ${userId}, Note ID: ${noteId}`);
     try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      if (isNaN(noteId)) {
         return res.status(400).json({ message: 'Invalid note ID' });
       }
 
@@ -116,9 +127,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: validationError.message });
       }
 
-      const updatedNote = await storage.updateNote(id, result.data);
+      const updatedNote = await storage.updateNote(noteId, userId, result.data);
       if (!updatedNote) {
-        return res.status(404).json({ message: 'Note not found' });
+        return res.status(404).json({ message: 'Note not found or not authorized' });
       }
 
       res.json(updatedNote);
@@ -129,15 +140,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Delete a note
   app.delete('/api/notes/:id', isAuthenticated, async (req: Request, res: Response) => {
+    const userId = (req.user as any)?.id as number;
+    const noteId = parseInt(req.params.id);
+    console.log(`[DELETE /api/notes/:id] Authenticated User ID: ${userId}, Note ID: ${noteId}`);
     try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      if (isNaN(noteId)) {
         return res.status(400).json({ message: 'Invalid note ID' });
       }
 
-      const success = await storage.deleteNote(id);
+      const success = await storage.deleteNote(noteId, userId);
       if (!success) {
-        return res.status(404).json({ message: 'Note not found' });
+        return res.status(404).json({ message: 'Note not found or not authorized' });
       }
 
       res.status(204).send();
@@ -166,14 +179,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Save attachment for a note
   app.post('/api/notes/:noteId/attachments', isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = (req.user as any).id as number;
       const noteId = parseInt(req.params.noteId);
       if (isNaN(noteId)) {
         return res.status(400).json({ message: 'Invalid note ID' });
       }
 
-      const note = await storage.getNote(noteId);
+      const note = await storage.getNote(noteId, userId);
       if (!note) {
-        return res.status(404).json({ message: 'Note not found' });
+        return res.status(404).json({ message: 'Note not found or not authorized' });
       }
 
       const result = insertAttachmentSchema.safeParse({
@@ -196,12 +210,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all attachments for a note
   app.get('/api/notes/:noteId/attachments', isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = (req.user as any).id as number;
       const noteId = parseInt(req.params.noteId);
       if (isNaN(noteId)) {
         return res.status(400).json({ message: 'Invalid note ID' });
       }
 
-      const attachments = await storage.getAttachments(noteId);
+      const attachments = await storage.getAttachments(noteId, userId);
       res.json(attachments);
     } catch (error) {
       res.status(500).json({ message: 'Failed to retrieve attachments' });
@@ -211,14 +226,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete an attachment
   app.delete('/api/attachments/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = (req.user as any).id as number;
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: 'Invalid attachment ID' });
       }
 
-      const success = await storage.deleteAttachment(id);
+      const success = await storage.deleteAttachment(id, userId);
       if (!success) {
-        return res.status(404).json({ message: 'Attachment not found' });
+        return res.status(404).json({ message: 'Attachment not found or not authorized' });
       }
 
       res.status(204).send();
@@ -230,12 +246,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get AI chat history for a note
   app.get('/api/notes/:noteId/ai-chats', isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = (req.user as any).id as number;
       const noteId = parseInt(req.params.noteId);
       if (isNaN(noteId)) {
         return res.status(400).json({ message: 'Invalid note ID' });
       }
 
-      const chats = await storage.getAiChats(noteId);
+      const chats = await storage.getAiChats(noteId, userId);
       res.json(chats);
     } catch (error) {
       res.status(500).json({ message: 'Failed to retrieve AI chats' });
@@ -245,14 +262,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new AI chat for a note
   app.post('/api/notes/:noteId/ai-chats', isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = (req.user as any).id as number;
       const noteId = parseInt(req.params.noteId);
       if (isNaN(noteId)) {
         return res.status(400).json({ message: 'Invalid note ID' });
       }
 
-      const note = await storage.getNote(noteId);
+      const note = await storage.getNote(noteId, userId);
       if (!note) {
-        return res.status(404).json({ message: 'Note not found' });
+        return res.status(404).json({ message: 'Note not found or not authorized' });
       }
 
       const result = insertAiChatSchema.safeParse({
@@ -275,6 +293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update an AI chat
   app.put('/api/ai-chats/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = (req.user as any).id as number;
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: 'Invalid chat ID' });
@@ -286,9 +305,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: validationError.message });
       }
 
-      const updatedChat = await storage.updateAiChat(id, result.data);
+      const updatedChat = await storage.updateAiChat(id, userId, result.data);
       if (!updatedChat) {
-        return res.status(404).json({ message: 'AI chat not found' });
+        return res.status(404).json({ message: 'AI chat not found or not authorized' });
       }
 
       res.json(updatedChat);
@@ -300,14 +319,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get a specific AI chat
   app.get('/api/ai-chats/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = (req.user as any).id as number;
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: 'Invalid chat ID' });
       }
 
-      const chat = await storage.getAiChat(id);
+      const chat = await storage.getAiChat(id, userId);
       if (!chat) {
-        return res.status(404).json({ message: 'AI chat not found' });
+        return res.status(404).json({ message: 'AI chat not found or not authorized' });
       }
 
       res.json(chat);
