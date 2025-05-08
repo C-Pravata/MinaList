@@ -4,11 +4,11 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "NODE_ENV=development tsx server/index.ts",
+    "dev": "DATABASE_URL='/Users/chrispravata/PurpleNotes/local.db' NODE_ENV=development node_modules/.bin/tsx server/index.ts",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "DATABASE_URL='/Users/chrispravata/PurpleNotes/local.db' node_modules/.bin/drizzle-kit push"
   },
   "dependencies": {
     "@capacitor/android": "^7.2.0",
@@ -100,6 +100,8 @@
     "@types/ws": "^8.5.13",
     "@vitejs/plugin-react": "^4.3.2",
     "autoprefixer": "^10.4.20",
+    "better-sqlite3": "^11.9.1",
+    "dotenv": "^16.5.0",
     "drizzle-kit": "^0.30.4",
     "esbuild": "^0.25.0",
     "postcss": "^8.4.47",

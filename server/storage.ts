@@ -6,12 +6,10 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, isNull, sql } from "drizzle-orm";
-import { pool } from "./db";
 import session from "express-session";
-import connectPg from "connect-pg-simple";
+import MemoryStoreFactory from "memorystore";
 
-// Create the Postgres session store
-const PostgresSessionStore = connectPg(session);
+const MemoryStore = MemoryStoreFactory(session);
 
 // Keep the same interface but expand with new operations
 export interface IStorage {
@@ -47,9 +45,8 @@ export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
 
   constructor() {
-    this.sessionStore = new PostgresSessionStore({
-      pool,
-      createTableIfMissing: true
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // prune expired entries every 24h
     });
   }
 
@@ -142,36 +139,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAiChat(chat: InsertAiChat): Promise<AiChat> {
-    // Use direct PostgreSQL client for JSON handling
-    const client = await pool.connect();
-    try {
-      const result = await client.query(
-        'INSERT INTO ai_chats (note_id, messages) VALUES ($1, $2) RETURNING *',
-        [chat.note_id, JSON.stringify(chat.messages)]
-      );
-      return result.rows[0] as AiChat;
-    } finally {
-      client.release();
-    }
+    // Use Drizzle ORM for JSON handling with SQLite
+    // Drizzle will handle JSON.stringify for SQLite if the column type expects text
+    const [newChat] = await db.insert(aiChats)
+      .values({
+        note_id: chat.note_id,
+        messages: chat.messages, // Pass the object directly, Drizzle handles serialization
+      })
+      .returning();
+    return newChat;
   }
 
   async updateAiChat(id: number, chat: UpdateAiChat): Promise<AiChat | undefined> {
-    // Use direct PostgreSQL client for JSON handling
-    const client = await pool.connect();
-    try {
-      const result = await client.query(
-        'UPDATE ai_chats SET messages = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
-        [JSON.stringify(chat.messages), id]
-      );
-      
-      if (result.rows.length === 0) {
-        return undefined;
-      }
-      
-      return result.rows[0] as AiChat;
-    } finally {
-      client.release();
-    }
+    // Use Drizzle ORM for JSON handling with SQLite
+    const now = new Date();
+    const [updatedChat] = await db.update(aiChats)
+      .set({
+        messages: chat.messages, // Pass the object directly
+        updated_at: now,
+      })
+      .where(eq(aiChats.id, id))
+      .returning();
+    
+    return updatedChat;
   }
 
   // Attachment operations
