@@ -27,10 +27,39 @@ export default function SwipeableNote({ note, isActive, onSelect, onDelete }: Sw
     setShowDeleteButton(false);
   }, [isActive]);
   
-  const getPreviewText = (content: string) => {
-    // Remove HTML tags for the preview
-    const textOnly = content.replace(/<\/?[^>]+(>|$)/g, "");
-    return textOnly.substring(0, 60) + (textOnly.length > 60 ? "..." : "");
+  const getTitlePreview = (title: string) => {
+    return title || "Untitled";
+  };
+
+  const getContentLinePreview = (fullHtmlContent: string, titleText: string) => {
+    // 1. Get plain text of the entire note content
+    const fullPlainText = fullHtmlContent.replace(/<\/?[^>]+(>|$)/g, "");
+
+    // 2. The provided titleText is already the plain text of the title.
+    //    We need to find the content that comes *after* this title text.
+    let contentAfterTitle = "";
+    if (fullPlainText.startsWith(titleText)) {
+      contentAfterTitle = fullPlainText.substring(titleText.length).trim();
+    } else {
+      // Fallback: If the full plain text doesn't start with the title text
+      // (which could happen if title extraction had quirks or content was unusual),
+      // we might attempt a simpler split, but this case should be rare if title is reliable.
+      // For now, let's assume titleText is a reliable prefix or the content starts fresh.
+      // A more aggressive fallback might be to just use lines[1] if lines.length > 1.
+      // However, if titleText itself contained newlines, this would be an issue.
+      // The current approach of removing the titleText prefix is more robust.
+      const lines = fullPlainText.split('\n');
+      if (lines.length > 1) {
+        // This is a weaker fallback. Prefer the prefix removal.
+        contentAfterTitle = lines.slice(1).join('\n').trim();
+      }
+    }
+    
+    if (contentAfterTitle) {
+      return contentAfterTitle.substring(0, 60) + (contentAfterTitle.length > 60 ? "..." : "");
+    }
+    
+    return "No additional text"; // Return "No additional text" if no content after title
   };
   
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
@@ -152,10 +181,10 @@ export default function SwipeableNote({ note, isActive, onSelect, onDelete }: Sw
         {isActive && (
           <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
         )}
-        <h3 className="font-medium text-base truncate">{note.title || "Untitled"}</h3>
+        <h3 className="font-medium text-base truncate">{getTitlePreview(note.title)}</h3>
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-1">
           <p className="text-sm text-muted-foreground truncate pr-4">
-            {getPreviewText(note.content)}
+            {getContentLinePreview(note.content, note.title)}
           </p>
           <span className="text-xs text-muted-foreground mt-1 sm:mt-0 whitespace-nowrap">
             {formatDistanceToNow(new Date(note.updated_at))}

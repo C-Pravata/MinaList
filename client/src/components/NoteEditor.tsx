@@ -46,30 +46,37 @@ export default function NoteEditor() {
     }
   }, [activeNote]);
 
-  const extractTitle = (htmlContent: string) => {
-    // Extract first line as title (remove HTML tags)
-    const textContent = htmlContent.replace(/<\/?[^>]+(>|$)/g, "");
-    const firstLine = textContent.split('\n')[0].trim();
-    
-    // Return first 50 chars of first line, or "Untitled" if empty
-    return firstLine 
-      ? (firstLine.length > 50 ? firstLine.substring(0, 50) + "..." : firstLine)
-      : "Untitled";
-  };
-
   const handleContentChange = (value: string) => {
-    // Update local state
     setContent(value);
     
-    // Extract first line as title
-    const newTitle = extractTitle(value);
-    setTitle(newTitle);
-    
-    // Save changes with debounce
-    handleSave(value, newTitle);
+    let newTitle = "Untitled";
+    if (quillRef.current) {
+      const editor = quillRef.current.getEditor();
+      const editorFullText = editor.getText();
+      const firstNewlineIndex = editorFullText.indexOf('\n');
+      const lengthOfFirstLine = firstNewlineIndex === -1 ? undefined : firstNewlineIndex;
 
-    // Log for debugging
-    console.log("Content updated:", value.substring(0, 100));
+      const firstLineDelta = editor.getContents(0, lengthOfFirstLine);
+      let firstLineTextOnly = "";
+      if (firstLineDelta && firstLineDelta.ops) {
+        firstLineDelta.ops.forEach(op => {
+          if (typeof op.insert === 'string') {
+            firstLineTextOnly += op.insert;
+          }
+        });
+      }
+      firstLineTextOnly = firstLineTextOnly.trim();
+
+      if (firstLineTextOnly) {
+        newTitle = firstLineTextOnly.length > 50 
+          ? firstLineTextOnly.substring(0, 50) + "..." 
+          : firstLineTextOnly;
+      } else {
+        newTitle = "Untitled";
+      }
+    }
+    setTitle(newTitle);
+    handleSave(value, newTitle);
   };
 
   // Debounced save logic
@@ -200,7 +207,6 @@ export default function NoteEditor() {
     const range = quill.getSelection();
     const position = range ? range.index : quill.getLength();
     
-    // Insert with proper line break if needed
     if (position > 0 && !content.endsWith('\n')) {
       quill.insertText(position, '\n\n');
       quill.insertText(position + 2, text);
@@ -210,18 +216,36 @@ export default function NoteEditor() {
       quill.setSelection(position + text.length, 0);
     }
     
-    // Update content state to trigger save
     const updatedContent = quill.root.innerHTML;
     setContent(updatedContent);
     
-    // Save changes with the updated content
-    const newTitle = extractTitle(updatedContent);
-    setTitle(newTitle);
+    // Consistent title extraction after AI text insertion
+    let newTitleFromAI = "Untitled";
+    const editorFullTextAfterAI = quill.getText();
+    const firstNewlineIndexAfterAI = editorFullTextAfterAI.indexOf('\n');
+    const lengthOfFirstLineAfterAI = firstNewlineIndexAfterAI === -1 ? undefined : firstNewlineIndexAfterAI;
     
-    // Trigger save
-    handleSave(updatedContent, newTitle);
+    const firstLineDeltaAfterAI = quill.getContents(0, lengthOfFirstLineAfterAI);
+    let firstLineTextOnlyAfterAI = "";
+    if (firstLineDeltaAfterAI && firstLineDeltaAfterAI.ops) {
+      firstLineDeltaAfterAI.ops.forEach(op => {
+        if (typeof op.insert === 'string') {
+          firstLineTextOnlyAfterAI += op.insert;
+        }
+      });
+    }
+    firstLineTextOnlyAfterAI = firstLineTextOnlyAfterAI.trim();
+
+    if (firstLineTextOnlyAfterAI) {
+      newTitleFromAI = firstLineTextOnlyAfterAI.length > 50
+        ? firstLineTextOnlyAfterAI.substring(0, 50) + "..."
+        : firstLineTextOnlyAfterAI;
+    } else {
+      newTitleFromAI = "Untitled";
+    }
+    setTitle(newTitleFromAI);
+    handleSave(updatedContent, newTitleFromAI);
     
-    // Show a toast notification to confirm the AI text was added
     toast({
       title: "AI text added",
       description: "The AI-generated text has been added to your note",
