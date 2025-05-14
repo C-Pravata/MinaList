@@ -19,18 +19,30 @@ export default function NoteEditor() {
   // Initialize editor with active note content when it changes
   useEffect(() => {
     if (activeNote) {
-      // Only set content and title if the note has existing content
-      if (activeNote.content || activeNote.title) {
-        setContent(activeNote.content);
-        setTitle(activeNote.title);
-      } else {
-        // For new notes, ensure they start blank
+      const isNewBlankNote = activeNote.title === "" && activeNote.content === "";
+
+      if (isNewBlankNote) {
         setContent("");
         setTitle("");
+        if (quillRef.current) {
+          const editor = quillRef.current.getEditor();
+          editor.root.innerHTML = ""; // Directly set innerHTML to blank
+        }
+      } else {
+        setContent(activeNote.content || "");
+        setTitle(activeNote.title || "");
+        // If existing content is blank, ensure editor visually reflects this too
+        if (quillRef.current && !activeNote.content) {
+            quillRef.current.getEditor().root.innerHTML = "";
+        }
       }
     } else {
       setContent("");
       setTitle("");
+      if (quillRef.current) {
+        const editor = quillRef.current.getEditor();
+        editor.root.innerHTML = ""; // Directly set innerHTML to blank
+      }
     }
   }, [activeNote]);
 

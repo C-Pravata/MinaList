@@ -23,15 +23,12 @@ export default function Home() {
 
   const handleCreateNote = async () => {
     try {
+      // Create a new blank note
       const newNote = await createNote();
+      
+      // Set it as the active note and enter editing mode
       setActiveNote(newNote);
       setIsEditing(true);
-      
-      // Optional: Toast can be removed or changed, as user is taken directly to editor
-      // toast({
-      //   title: "New note ready",
-      //   description: "Start writing...",
-      // });
     } catch (error) {
       toast({
         title: "Error",
@@ -57,12 +54,11 @@ export default function Home() {
     });
   };
   
-  const handleCancel = async () => {
+  const handleBack = async () => {
     // --- Overhauled Cancel Logic ---
-    // Cancel should simply exit the editing mode and return to the list view.
+    // Back should simply exit the editing mode and return to the list view.
     // It should NOT delete any notes.
     // Auto-saving in the editor should handle persistence.
-    // If we wanted to discard *truly untouched* new notes, it would need more complex state.
     
     setIsEditing(false); // Exit editing mode
     setActiveNote(null); // Deselect note, effectively returning to the list
@@ -76,7 +72,7 @@ export default function Home() {
       <Header 
         isEditing={isEditing} 
         onDone={handleDone} 
-        onCancel={handleCancel}
+        onBack={handleBack}
       />
       
       <div className="flex flex-1 overflow-hidden relative">

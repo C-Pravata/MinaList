@@ -74,7 +74,7 @@ export class DatabaseStorage implements IStorage {
         eq(notes.is_deleted, false),
         eq(notes.user_id, userId)
       ))
-      .orderBy(desc(notes.updated_at));
+      .orderBy(desc(notes.created_at));
   }
 
   async getNote(id: number, userId: number): Promise<Note | undefined> {

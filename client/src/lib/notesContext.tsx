@@ -34,7 +34,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   // Create note mutation
   const createNoteMutation = useMutation({
     mutationFn: async () => {
-      // Use ClientInsertNote for the payload
+      // Use ClientInsertNote for the payload - always create with empty content
       const notePayload: ClientInsertNote = {
         title: "", 
         content: "", 
@@ -93,19 +93,40 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  // Set first note as active when notes load if there is no active note
+  // This useEffect handles cases where the activeNote might become invalid
+  // (e.g., deleted) or when notes initially load.
   useEffect(() => {
-    if (notes.length > 0 && !activeNote) {
-      setActiveNote(notes[0]);
+    if (isLoading) {
+      return; // Don't interfere while notes are loading/refetching.
     }
-    
-    // If activeNote is deleted, set to null
-    if (activeNote && !notes.some(note => note.id === activeNote.id)) {
-      setActiveNote(notes.length > 0 ? notes[0] : null);
-    }
-  }, [notes, activeNote]);
 
-  // Create a new note
+    if (activeNote) {
+      const isActiveNotePresent = notes.some(note => note.id === activeNote.id);
+
+      if (!isActiveNotePresent) {
+        // Active note is set, but not found in the current 'notes' list.
+        // This could be because:
+        // 1. It's a brand-new note, and the 'notes' list hasn't updated yet from the server.
+        // 2. The note was deleted.
+
+        // Check if the activeNote appears to be a new, blank note.
+        const isApparentlyNewBlankNote = activeNote.title === "" && activeNote.content === "";
+
+        if (!isApparentlyNewBlankNote) {
+          // It's NOT a new blank note, so it was likely deleted or is genuinely stale.
+          // Fallback to the first note in the (updated) list, or null if the list is empty.
+          setActiveNote(notes.length > 0 ? notes[0] : null);
+        }
+        // If it IS an apparentlyNewBlankNote, we do nothing here.
+        // This allows the NoteEditor to use this new, blank activeNote
+        // while the main 'notes' list catches up.
+      }
+    }
+    // If activeNote is null (e.g., after 'Done' or 'Back'), and notes load, we don't auto-select.
+    // The user will either create a new one or select from the list.
+  }, [notes, isLoading, activeNote, setActiveNote]);
+
+  // Create a new note - guarantee it starts blank
   const createNote = async () => {
     const newNote = await createNoteMutation.mutateAsync();
     return newNote;

@@ -1,4 +1,4 @@
-import { Search, X, Check, Bot } from "lucide-react";
+import { Search, X, Check, Bot, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
 import UserProfile from "@/components/UserProfile";
@@ -6,21 +6,22 @@ import UserProfile from "@/components/UserProfile";
 interface HeaderProps {
   isEditing: boolean;
   onDone: () => void;
-  onCancel: () => void;
+  onBack: () => void;
 }
 
-export default function Header({ isEditing, onDone, onCancel }: HeaderProps) {
+export default function Header({ isEditing, onDone, onBack }: HeaderProps) {
   return (
     <header className="border-b border-border/50 py-3 px-4 flex justify-between items-center bg-background/85 backdrop-blur-lg sticky top-0 z-20 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
       <div className="flex items-center gap-2 md:gap-4">
         {isEditing ? (
           <Button 
             variant="ghost" 
-            onClick={onCancel}
-            className="text-red-500 hover:text-red-600/90 hover:bg-red-500/5 text-sm font-medium rounded-full transition-colors"
+            onClick={onBack}
+            className="text-primary hover:text-primary/90 hover:bg-primary/5 text-sm font-medium rounded-md transition-colors px-2 py-1 flex items-center gap-1"
             size="sm"
           >
-            Cancel
+            <ArrowLeft className="h-4 w-4" /> 
+            <span>Notes</span>
           </Button>
         ) : (
           <div className="flex items-center gap-2">
