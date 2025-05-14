@@ -134,4 +134,7 @@ local.db-journal # SQLite journal file
 test_env.js
 
 # Drizzle studio files
-drizzle.studio.* 
+drizzle.studio.*
+
+# User uploaded files
+/uploads/ 

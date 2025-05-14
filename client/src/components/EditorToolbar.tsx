@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { 
   Bold, 
   Italic, 
@@ -31,6 +31,7 @@ interface EditorToolbarProps {
 
 export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssistantToggle, activeNoteTitle }: EditorToolbarProps) {
   const linkInputRef = useRef<HTMLInputElement>(null);
+  const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
   
   const handleFormat = (format: string) => {
     const quill = quillRef.current?.getEditor();
@@ -39,13 +40,39 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
   
   const handleLink = (url: string) => {
     const quill = quillRef.current?.getEditor();
-    const range = quill?.getSelection();
-    if (quill && range) {
-      if (url) {
-        quill.format('link', url);
-      } else {
-        quill.format('link', false);
+    if (!quill) return;
+
+    let normalizedUrl = url.trim();
+    if (!normalizedUrl) {
+      // If URL is empty, attempt to unlink any existing link at the selection
+      const currentRange = quill.getSelection();
+      if (currentRange) {
+        quill.formatText(currentRange.index, currentRange.length, 'link', false);
       }
+      return;
+    }
+
+    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+      normalizedUrl = 'https://' + normalizedUrl;
+    }
+
+    quill.focus(); // Ensure the editor has focus before attempting to get selection or insert
+    const range = quill.getSelection();
+
+    if (range) {
+      if (range.length > 0) {
+        // Text is selected, format it as a link
+        quill.formatText(range.index, range.length, 'link', normalizedUrl);
+      } else {
+        // No text is selected, insert the URL as the link text
+        quill.insertText(range.index, normalizedUrl, 'link', normalizedUrl);
+        quill.setSelection(range.index + normalizedUrl.length, 0);
+      }
+    } else {
+      // Fallback if range is still null after focusing (should be rare)
+      const currentLength = quill.getLength();
+      quill.insertText(currentLength, normalizedUrl, 'link', normalizedUrl);
+      quill.setSelection(currentLength + normalizedUrl.length, 0);
     }
   };
   
@@ -232,7 +259,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
         
         {/* Insert options group */}
         <div className="flex items-center space-x-1.5">
-          <Dialog>
+          <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DialogTrigger asChild>
@@ -240,6 +267,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
                     variant="ghost" 
                     size="sm" 
                     className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
+                    onClick={() => setIsLinkDialogOpen(true)}
                   >
                     <LinkIcon className="h-4 w-4" />
                   </Button>
@@ -249,27 +277,32 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             </Tooltip>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Add a link</DialogTitle>
+                <DialogTitle>Insert Link</DialogTitle>
               </DialogHeader>
-              <div className="flex flex-col gap-4 py-4">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="link">URL</Label>
+              <div className="flex items-center space-x-2 py-4">
+                <div className="grid flex-1 gap-2">
+                  <Label htmlFor="link-url" className="sr-only">
+                    Link URL
+                  </Label>
                   <Input
+                    id="link-url"
                     ref={linkInputRef}
-                    id="link"
                     placeholder="https://example.com"
-                    className="col-span-3"
                   />
                 </div>
-                <Button 
-                  type="submit" 
-                  onClick={() => {
-                    handleLink(linkInputRef.current?.value || '');
-                  }}
-                >
-                  Add Link
-                </Button>
               </div>
+              <Button 
+                type="button"
+                className="w-full"
+                onClick={() => {
+                  if (linkInputRef.current && linkInputRef.current.value) {
+                    handleLink(linkInputRef.current.value);
+                    setIsLinkDialogOpen(false);
+                  }
+                }}
+              >
+                Add Link
+              </Button>
             </DialogContent>
           </Dialog>
           
