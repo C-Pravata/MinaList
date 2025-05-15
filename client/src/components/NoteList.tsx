@@ -2,11 +2,13 @@ import { useState } from "react";
 import { formatDistanceToNow } from "@/lib/formatDate";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, PlusCircle } from "lucide-react";
+import { Search, PlusCircle, Bot } from "lucide-react";
 import { Note } from "@shared/schema";
 import SwipeableNote from "@/components/SwipeableNote";
 import { useToast } from "@/hooks/use-toast";
 import { useNotes } from "@/hooks/useNotes";
+import { Button } from "@/components/ui/button";
+import DashboardAIAssistant from "@/components/DashboardAIAssistant";
 
 interface NoteListProps {
   notes: Note[];
@@ -18,6 +20,7 @@ interface NoteListProps {
 export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading }: NoteListProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchVisible, setSearchVisible] = useState(false);
+  const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
   const { deleteNote } = useNotes();
   const { toast } = useToast();
 
@@ -60,6 +63,13 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
     }
   };
 
+  const handleNavigateToNote = (noteId: number) => {
+    const note = notes.find(n => n.id === noteId);
+    if (note) {
+      onNoteSelect(note);
+    }
+  };
+
   return (
     <div className="notes-list h-full">
       <div className="p-3 border-b border-[hsl(var(--notelist-border))]">
@@ -85,6 +95,16 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
               </span>
             )}
           </div>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full text-primary/80 hover:text-primary hover:bg-primary/10"
+            onClick={() => setAiAssistantOpen(true)}
+            title="Ask Mina AI about your notes"
+          >
+            <Bot className="h-5 w-5" />
+          </Button>
         </div>
       </div>
 
@@ -120,6 +140,13 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
           </div>
         )}
       </div>
+      
+      {/* Dashboard AI Assistant */}
+      <DashboardAIAssistant 
+        open={aiAssistantOpen}
+        onClose={() => setAiAssistantOpen(false)}
+        onNavigateToNote={handleNavigateToNote}
+      />
     </div>
   );
 }

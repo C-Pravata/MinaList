@@ -371,6 +371,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dashboard AI chat with notes context endpoint
+  app.post('/api/ai/dashboard-chat', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { messages, notes } = req.body;
+      const userId = (req.user as any)?.id as number;
+      
+      if (!Array.isArray(messages) || !Array.isArray(notes)) {
+        return res.status(400).json({ message: 'Invalid request format: messages and notes must be arrays' });
+      }
+      
+      // Verify these are the user's notes
+      const userNotes = await storage.getNotes(userId);
+      const userNoteIds = new Set(userNotes.map(note => note.id));
+      
+      // Filter out any notes that don't belong to this user
+      const validNotes = notes.filter(note => userNoteIds.has(note.id));
+      
+      // Function to convert HTML to plain text (server-side compatible)
+      const htmlToPlainText = (html: string): string => {
+        // Simple replacements for common HTML tags
+        return html
+          .replace(/<[^>]*>/g, '') // Remove HTML tags
+          .replace(/&nbsp;/g, ' ')  // Replace non-breaking spaces
+          .replace(/&amp;/g, '&')   // Replace ampersands
+          .replace(/&lt;/g, '<')    // Replace less than
+          .replace(/&gt;/g, '>')    // Replace greater than
+          .trim();                  // Trim whitespace
+      };
+      
+      // Prepare content for the AI - process the notes into a searchable context
+      let notesContext = "USER'S NOTES CONTEXT:\n\n";
+      
+      validNotes.forEach((note, i) => {
+        // Convert HTML content to plain text
+        const plainContent = htmlToPlainText(note.content || '');
+        
+        notesContext += `Note #${i+1} [ID: ${note.id}]\n`;
+        notesContext += `Title: ${note.title || "Untitled"}\n`;
+        notesContext += `Created: ${new Date(note.created_at).toISOString()}\n`;
+        notesContext += `Updated: ${new Date(note.updated_at).toISOString()}\n`;
+        notesContext += `Content: ${plainContent.substring(0, 1000)}${plainContent.length > 1000 ? '...' : ''}\n\n`;
+      });
+      
+      // Add system message with notes context
+      const systemMessage = {
+        role: 'system' as const,
+        content: `You are Mina, a helpful AI assistant for a note-taking app called PurpleNotes. 
+Your job is to help users find and retrieve information from their notes.
+When users ask about their notes, search through the provided context to find relevant information.
+Always provide note references with ID, title, and date when answering questions about notes.
+If a user asks about a specific topic (like "chicken soup recipes"), search for those keywords in the notes.
+If asked to locate a specific note, scan the provided notes context and return IDs of the most relevant matches.
+Format your note references with note ID and brief excerpt from the content.
+Do not fabricate notes or content that isn't actually present in the context.
+${notesContext}`
+      };
+      
+      // Process conversation messages
+      const conversationMessages = messages.filter(msg => msg.role !== 'system');
+      
+      // Convert all messages to Gemini format
+      const geminiMessages: GeminiMessage[] = [
+        {
+          role: 'user',
+          parts: [{ text: systemMessage.content }]
+        },
+        ...conversationMessages.map(msg => ({
+          role: msg.role === 'assistant' ? 'model' : (msg.role === 'system' ? 'user' : msg.role),
+          parts: [{ text: msg.content }]
+        }))
+      ];
+
+      // Get response from Gemini
+      const responseText = await generateGeminiResponse(geminiMessages);
+      
+      // Process the response to extract note references
+      const referencedNotes: { id: number, title: string, createdAt: number, excerpt: string, confidence: number }[] = [];
+      
+      // Parse note IDs from the response
+      const noteIdRegex = /\[ID: (\d+)\]/g;
+      let match;
+      const foundIds: number[] = [];
+      while ((match = noteIdRegex.exec(responseText)) !== null) {
+        foundIds.push(parseInt(match[1]));
+      }
+      
+      // Find unique IDs and get the corresponding notes
+      const uniqueIds = Array.from(new Set(foundIds));
+      
+      for (let i = 0; i < uniqueIds.length; i++) {
+        const id = uniqueIds[i];
+        const matchingNote = validNotes.find(note => note.id === id);
+        if (matchingNote) {
+          // Extract a brief excerpt from the matching note
+          const plainContent = htmlToPlainText(matchingNote.content || '');
+          const excerpt = plainContent.substring(0, 120) + (plainContent.length > 120 ? '...' : '');
+          
+          referencedNotes.push({
+            id: matchingNote.id,
+            title: matchingNote.title || "Untitled",
+            createdAt: matchingNote.created_at,
+            excerpt,
+            confidence: 1.0 // We could implement a more sophisticated confidence scoring
+          });
+        }
+      }
+      
+      // Clean up the response text to make it more user-friendly
+      let cleanedResponse = responseText;
+      // Remove the formal note ID references since we're showing them separately
+      cleanedResponse = cleanedResponse.replace(/\[ID: \d+\]/g, '');
+      
+      // Return the response with referenced notes to the client
+      res.json({
+        message: {
+          role: 'assistant',
+          content: cleanedResponse
+        },
+        referencedNotes
+      });
+      
+    } catch (error) {
+      console.error('Error in dashboard AI chat endpoint:', error);
+      res.status(500).json({ 
+        message: 'Failed to get AI response',
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
