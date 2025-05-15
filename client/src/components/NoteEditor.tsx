@@ -57,26 +57,23 @@ export default function NoteEditor() {
     if (quillRef.current) {
       const editor = quillRef.current.getEditor();
       const editorFullText = editor.getText();
-      const firstNewlineIndex = editorFullText.indexOf('\n');
-      const lengthOfFirstLine = firstNewlineIndex === -1 ? undefined : firstNewlineIndex;
-
-      const firstLineDelta = editor.getContents(0, lengthOfFirstLine);
-      let firstLineTextOnly = "";
-      if (firstLineDelta && firstLineDelta.ops) {
-        firstLineDelta.ops.forEach(op => {
-          if (typeof op.insert === 'string') {
-            firstLineTextOnly += op.insert;
-          }
-        });
+      const lines = editorFullText.split('\n');
+      
+      let firstNonEmptyLine = "";
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine !== "") {
+          firstNonEmptyLine = trimmedLine;
+          break;
+        }
       }
-      firstLineTextOnly = firstLineTextOnly.trim();
 
-      if (firstLineTextOnly) {
-        newTitle = firstLineTextOnly.length > 50 
-          ? firstLineTextOnly.substring(0, 50) + "..." 
-          : firstLineTextOnly;
+      if (firstNonEmptyLine) {
+        newTitle = firstNonEmptyLine.length > 100 // Increased max title length a bit
+          ? firstNonEmptyLine.substring(0, 100) + "..." 
+          : firstNonEmptyLine;
       } else {
-        newTitle = "Untitled";
+        newTitle = "Untitled"; // Default if all lines are empty or only whitespace
       }
     }
     setTitle(newTitle);
@@ -227,24 +224,21 @@ export default function NoteEditor() {
     // Consistent title extraction after AI text insertion
     let newTitleFromAI = "Untitled";
     const editorFullTextAfterAI = quill.getText();
-    const firstNewlineIndexAfterAI = editorFullTextAfterAI.indexOf('\n');
-    const lengthOfFirstLineAfterAI = firstNewlineIndexAfterAI === -1 ? undefined : firstNewlineIndexAfterAI;
+    const linesAfterAI = editorFullTextAfterAI.split('\n');
     
-    const firstLineDeltaAfterAI = quill.getContents(0, lengthOfFirstLineAfterAI);
-    let firstLineTextOnlyAfterAI = "";
-    if (firstLineDeltaAfterAI && firstLineDeltaAfterAI.ops) {
-      firstLineDeltaAfterAI.ops.forEach(op => {
-        if (typeof op.insert === 'string') {
-          firstLineTextOnlyAfterAI += op.insert;
-        }
-      });
+    let firstNonEmptyLineAfterAI = "";
+    for (const line of linesAfterAI) {
+      const trimmedLine = line.trim();
+      if (trimmedLine !== "") {
+        firstNonEmptyLineAfterAI = trimmedLine;
+        break;
+      }
     }
-    firstLineTextOnlyAfterAI = firstLineTextOnlyAfterAI.trim();
 
-    if (firstLineTextOnlyAfterAI) {
-      newTitleFromAI = firstLineTextOnlyAfterAI.length > 50
-        ? firstLineTextOnlyAfterAI.substring(0, 50) + "..."
-        : firstLineTextOnlyAfterAI;
+    if (firstNonEmptyLineAfterAI) {
+      newTitleFromAI = firstNonEmptyLineAfterAI.length > 100
+        ? firstNonEmptyLineAfterAI.substring(0, 100) + "..."
+        : firstNonEmptyLineAfterAI;
     } else {
       newTitleFromAI = "Untitled";
     }

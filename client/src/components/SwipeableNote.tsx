@@ -31,35 +31,53 @@ export default function SwipeableNote({ note, isActive, onSelect, onDelete }: Sw
     return title || "Untitled";
   };
 
-  const getContentLinePreview = (fullHtmlContent: string, titleText: string) => {
-    // 1. Get plain text of the entire note content
-    const fullPlainText = fullHtmlContent.replace(/<\/?[^>]+(>|$)/g, "");
+  // Helper function to convert HTML to plain text and split into lines
+  const getPlainTextLines = (htmlContent: string): string[] => {
+    if (!htmlContent) return [];
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    
+    // Replace <p>, <div>, and <br> with newlines before getting text content
+    const html = tempDiv.innerHTML;
+    const processedHtml = html
+      .replace(/<\/(p|div)>/g, '\n')
+      .replace(/<br\s*\/?>/g, '\n');
+    
+    tempDiv.innerHTML = processedHtml;
+    const plainText = tempDiv.textContent || tempDiv.innerText || "";
+    
+    // Split by newlines and filter out empty lines in one go
+    return plainText.split('\n')
+      .map(line => line.trim())
+      .filter(line => line !== "");
+  };
 
-    // 2. The provided titleText is already the plain text of the title.
-    //    We need to find the content that comes *after* this title text.
-    let contentAfterTitle = "";
-    if (fullPlainText.startsWith(titleText)) {
-      contentAfterTitle = fullPlainText.substring(titleText.length).trim();
-    } else {
-      // Fallback: If the full plain text doesn't start with the title text
-      // (which could happen if title extraction had quirks or content was unusual),
-      // we might attempt a simpler split, but this case should be rare if title is reliable.
-      // For now, let's assume titleText is a reliable prefix or the content starts fresh.
-      // A more aggressive fallback might be to just use lines[1] if lines.length > 1.
-      // However, if titleText itself contained newlines, this would be an issue.
-      // The current approach of removing the titleText prefix is more robust.
-      const lines = fullPlainText.split('\n');
-      if (lines.length > 1) {
-        // This is a weaker fallback. Prefer the prefix removal.
-        contentAfterTitle = lines.slice(1).join('\n').trim();
-      }
+  const getContentLinePreview = (fullHtmlContent: string, noteTitle: string) => {
+    const nonEmptyLines = getPlainTextLines(fullHtmlContent);
+    if (!nonEmptyLines.length) return "No additional text";
+
+    const effectiveTitle = (noteTitle || "").trim();
+    
+    // If there's no title or it's "Untitled", use the second line if it exists
+    if (effectiveTitle === "" || effectiveTitle === "Untitled") {
+      return nonEmptyLines.length > 1 
+        ? nonEmptyLines[1].substring(0, 60) + (nonEmptyLines[1].length > 60 ? "..." : "")
+        : "No additional text";
+    }
+
+    // Find the index of the title
+    const titleIndex = nonEmptyLines.findIndex(line => line === effectiveTitle);
+    
+    // If title is found, use the next line after it
+    if (titleIndex !== -1 && titleIndex + 1 < nonEmptyLines.length) {
+      return nonEmptyLines[titleIndex + 1].substring(0, 60) + (nonEmptyLines[titleIndex + 1].length > 60 ? "..." : "");
     }
     
-    if (contentAfterTitle) {
-      return contentAfterTitle.substring(0, 60) + (contentAfterTitle.length > 60 ? "..." : "");
-    }
-    
-    return "No additional text"; // Return "No additional text" if no content after title
+    // If title not found in content, use the first non-title line
+    const firstNonTitleLine = nonEmptyLines.find(line => line !== effectiveTitle);
+    return firstNonTitleLine
+      ? firstNonTitleLine.substring(0, 60) + (firstNonTitleLine.length > 60 ? "..." : "")
+      : "No additional text";
   };
   
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
