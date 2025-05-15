@@ -2,6 +2,7 @@ import express, { type Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
+import { generateGeminiResponse, type GeminiMessage } from './geminiApi';
 import { 
   insertNoteSchema, 
   updateNoteSchema,
@@ -333,6 +334,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(chat);
     } catch (error) {
       res.status(500).json({ message: 'Failed to retrieve AI chat' });
+    }
+  });
+
+  // Gemini AI chat endpoint
+  app.post('/api/ai/chat', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const { messages } = req.body;
+      
+      if (!Array.isArray(messages)) {
+        return res.status(400).json({ message: 'Invalid request format: messages must be an array' });
+      }
+      
+      // Convert messages from our app format to Gemini format
+      const geminiMessages: GeminiMessage[] = messages.map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : (msg.role === 'system' ? 'user' : msg.role),
+        parts: [{ text: msg.content }]
+      }));
+      
+      // Get response from Gemini
+      const responseText = await generateGeminiResponse(geminiMessages);
+      
+      // Return the response to the client
+      res.json({
+        message: {
+          role: 'assistant',
+          content: responseText
+        }
+      });
+    } catch (error) {
+      console.error('Error in AI chat endpoint:', error);
+      res.status(500).json({ 
+        message: 'Failed to get AI response',
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 

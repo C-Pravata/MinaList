@@ -40,50 +40,27 @@ export default function AIAssistant({ open, onClose, onInsertText }: AIAssistant
     setIsLoading(true);
 
     try {
-      // For now, we'll handle AI responses with a simulated response
-      // In a real app, this would connect to the OpenAI API
-      setTimeout(() => {
-        const assistantMessage: Message = {
-          role: "assistant",
-          content: getSimulatedResponse(prompt)
-        };
-        setMessages(prev => [...prev, assistantMessage]);
-        setIsLoading(false);
-        
-        // Scroll to bottom
-        setTimeout(() => {
-          bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-        }, 100);
-      }, 1000);
+      // Send request to our backend API, which will forward to Gemini
+      const aiChatData = { messages: [...messages, userMessage] };
+      const response = await apiRequest("POST", "/api/ai/chat", aiChatData);
+      const data = await response.json();
       
-      // For future OpenAI integration:
-      // const aiChatData = { note_id: activeNote?.id, messages: [...messages, userMessage] };
-      // const response = await apiRequest("POST", "/api/ai/chat", aiChatData);
-      // const data = await response.json();
-      // setMessages(prev => [...prev, data.message]);
+      // Add the AI response to our messages
+      setMessages(prev => [...prev, data.message]);
+      setIsLoading(false);
+      
+      // Scroll to bottom
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
     } catch (error) {
+      console.error('Error getting AI response:', error);
       toast({
         title: "AI Assistant Error",
         description: "Failed to get a response from the AI assistant",
         variant: "destructive",
       });
       setIsLoading(false);
-    }
-  };
-
-  const getSimulatedResponse = (prompt: string): string => {
-    const lowerPrompt = prompt.toLowerCase();
-    
-    if (lowerPrompt.includes("hello") || lowerPrompt.includes("hi")) {
-      return "Hello! I'm Mina, your note-taking assistant. How can I help you today?";
-    } else if (lowerPrompt.includes("help") || lowerPrompt.includes("what can you do")) {
-      return "I can help you with your notes by answering questions, drafting content, or organizing information. What would you like assistance with?";
-    } else if (lowerPrompt.includes("summarize") || lowerPrompt.includes("summary")) {
-      return "I'd be happy to summarize your note. To provide a good summary, I'd need to see the content you want summarized first.";
-    } else if (lowerPrompt.includes("idea") || lowerPrompt.includes("suggestion")) {
-      return "Here are some ideas for your note:\n- Add a clear heading structure\n- Include bullet points for key ideas\n- Add relevant images\n- Use formatting to highlight important concepts";
-    } else {
-      return "I understand what you're asking. When the app is connected to an AI service like OpenAI, I'll be able to provide more personalized responses to your specific questions.";
     }
   };
 

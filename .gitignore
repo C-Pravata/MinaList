@@ -137,4 +137,10 @@ test_env.js
 drizzle.studio.*
 
 # User uploaded files
-/uploads/ 
+/uploads/
+server/.env
+
+# Environment variables
+.env
+.env.*
+!.env.example 
