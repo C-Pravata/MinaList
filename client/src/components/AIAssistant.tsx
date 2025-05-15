@@ -1,4 +1,6 @@
 import { useState, useRef } from "react";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -127,8 +129,14 @@ export default function AIAssistant({ open, onClose, onInsertText }: AIAssistant
                   </>
                 )}
               </div>
-              <div className="text-sm whitespace-pre-wrap">
-                {message.content}
+              <div className="text-sm whitespace-pre-wrap prose dark:prose-invert max-w-none">
+                {message.role === 'assistant' ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {message.content}
+                  </ReactMarkdown>
+                ) : (
+                  message.content
+                )}
               </div>
               
               {message.role === "assistant" && (

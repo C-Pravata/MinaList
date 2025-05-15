@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef } from "react";
-import ReactQuill from "react-quill";
+import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import MarkdownShortcuts from 'quill-markdown-shortcuts';
 import { useNotes } from "@/hooks/useNotes";
 import { useToast } from "@/hooks/use-toast";
 import EditorToolbar from "@/components/EditorToolbar";
 import AIAssistant from "@/components/AIAssistant";
 import { Skeleton } from "@/components/ui/skeleton";
+
+// Register the Markdown shortcuts module with Quill
+Quill.register('modules/markdownShortcuts', MarkdownShortcuts);
 
 export default function NoteEditor() {
   const { activeNote, updateNote, isLoading, deleteActiveNote } = useNotes();
@@ -152,7 +156,7 @@ export default function NoteEditor() {
       [{ 'header': [1, 2, false] }],
       ['bold', 'italic', 'underline', 'strike'],
       [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      ['link', 'image'],
+      ['link', 'image', 'blockquote', 'code-block'],
       ['clean']
     ],
     clipboard: {
@@ -162,14 +166,15 @@ export default function NoteEditor() {
       bindings: {
         tab: false,
       }
-    }
+    },
+    markdownShortcuts: {},
   };
 
   const formats = [
     'header',
     'bold', 'italic', 'underline', 'strike',
     'list', 'bullet',
-    'link', 'image'
+    'link', 'image', 'blockquote', 'code-block'
   ];
 
   if (isLoading) {
