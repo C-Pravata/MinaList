@@ -34,34 +34,42 @@ export default function AIAssistant({ open, onClose, onInsertText }: AIAssistant
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const handleSendPrompt = async () => {
-    if (!prompt.trim() || isLoading) return;
+    if (!prompt.trim() || isLoading || !activeNote) return;
     
     const userMessage: Message = { role: "user", content: prompt };
+    const currentHistory = [...messages]; // History before adding the new user message
+
     setMessages(prev => [...prev, userMessage]);
     setPrompt("");
     setIsLoading(true);
 
     try {
-      // Send request to our backend API, which will forward to Gemini
-      const aiChatData = { messages: [...messages, userMessage] };
-      const response = await apiRequest("POST", "/api/ai/chat", aiChatData);
-      const data = await response.json();
+      const aiChatData = { 
+        prompt: userMessage.content, 
+        history: currentHistory.filter(msg => msg.role !== 'system') // Send only user/assistant history
+      };
+      const response = await apiRequest("POST", `/api/notes/${activeNote.id}/ai/generate`, aiChatData);
+      const data = await response.json(); // Expects { response: "AI message" }
       
-      // Add the AI response to our messages
-      setMessages(prev => [...prev, data.message]);
+      if (data.response) {
+        setMessages(prev => [...prev, { role: "assistant", content: data.response }]);
+      } else {
+        throw new Error("AI response format incorrect");
+      }
       setIsLoading(false);
       
-      // Scroll to bottom
       setTimeout(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 100);
     } catch (error) {
-      console.error('Error getting AI response:', error);
-      toast({
-        title: "AI Assistant Error",
-        description: "Failed to get a response from the AI assistant",
-        variant: "destructive",
-      });
+      console.error('Error getting AI response from in-note assistant:', error);
+      // toast({
+      //   title: "AI Assistant Error",
+      //   description: "Failed to get a response from the AI assistant",
+      //   variant: "destructive",
+      // });
+      // Add a system message to UI about the error
+      setMessages(prev => [...prev, { role: "assistant", content: "Sorry, I couldn't get a response. Please try again." }]);
       setIsLoading(false);
     }
   };

@@ -55,6 +55,12 @@ const upload = multer({
   }
 });
 
+// Define the structure of messages coming from AIAssistant.tsx
+interface ClientAiMessage {
+  role: 'user' | 'assistant' | 'system'; // Client might send 'system', we filter later
+  content: string;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Serve uploaded files
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
@@ -383,24 +389,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/notes/:noteId/ai/generate', async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
     const noteId = parseInt(req.params.noteId);
-    const { prompt, history } = req.body as { prompt: string; history?: GeminiMessage[] };
+    const { prompt, history } = req.body as { prompt: string; history?: ClientAiMessage[] };
 
-    console.log(`[POST /api/notes/:noteId/ai/generate] Device ID: ${deviceId}, Note ID: ${noteId}`);
+    console.log(`[POST /api/notes/:noteId/ai/generate] Device ID: ${deviceId}, Note ID: ${noteId}, Prompt: "${prompt}", History items: ${history?.length}`);
     try {
       if (isNaN(noteId)) {
         return res.status(400).json({ message: 'Invalid note ID' });
       }
-      // Verify note belongs to device
       const note = await storage.getNote(noteId, deviceId);
       if (!note) {
         return res.status(404).json({ message: 'Note not found or not authorized for this device' });
       }
-
       if (!prompt) {
         return res.status(400).json({ message: 'Prompt is required' });
       }
 
-      const aiResponse = await generateGeminiResponse(prompt, history);
+      const messagesForGemini: GeminiMessage[] = [];
+      if (history && history.length > 0) {
+        history.forEach(clientMsg => {
+          let geminiRole: 'user' | 'model' | undefined = undefined; 
+          if (clientMsg.role === 'user') {
+            geminiRole = 'user';
+          } else if (clientMsg.role === 'assistant') { // Client uses 'assistant'
+            geminiRole = 'model'; // Gemini API uses 'model' for assistant's messages
+          }
+          // 'system' roles from client history are skipped for this endpoint.
+          // 'model' role directly from client history is unexpected; client should send 'assistant'.
+
+          if (geminiRole) { 
+            messagesForGemini.push({
+              role: geminiRole,
+              parts: [{ text: clientMsg.content }]
+            });
+          }
+        });
+      }
+      messagesForGemini.push({ role: 'user', parts: [{ text: prompt }] });
+
+      console.log('Sending to Gemini:', JSON.stringify({ contents: messagesForGemini }, null, 2));
+      const aiResponse = await generateGeminiResponse(messagesForGemini);
       res.json({ response: aiResponse });
 
     } catch (error) {

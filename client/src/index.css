@@ -353,3 +353,18 @@
 .note-editor {
   @apply bg-[hsl(var(--editor-background))];
 }
+
+.search-highlight {
+  outline: 1.5px solid #A855F7; /* Tailwind purple-500 */
+  background-color: rgba(168, 85, 247, 0.15); /* Lighter purple background */
+  padding: 0.5px 2px;
+  border-radius: 3px;
+  font-weight: 500; /* Medium weight to make it pop a bit */
+  color: #374151; /* Tailwind gray-700 for dark text on light bg */
+}
+
+.dark .search-highlight {
+  outline-color: #C084FC; /* Tailwind purple-400 */
+  background-color: rgba(192, 132, 252, 0.2);
+  color: #D1D5DB; /* Tailwind gray-300 for light text on dark bg */
+}

@@ -133,6 +133,7 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
                 isActive={note.id === activeNoteId}
                 onSelect={onNoteSelect}
                 onDelete={handleDeleteNote}
+                searchQuery={searchQuery}
               />
             ))}
           </div>
