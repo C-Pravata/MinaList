@@ -73,15 +73,28 @@ export default function SwipeableNote({ note, isActive, onSelect, onDelete, sear
     let titleHtml = escapeHtml(noteTitle);
     let contentPreviewHtml: string | null = null;
     let isContentMatchForPreview = false;
+    let isTitleMatch = false;
 
-    // Corrected regex for stripping HTML tags
-    const plainContent = (currentNote.content || "").replace(/<\/?([^>]+?)>/g, "");
+    // Get plain content, excluding the title
+    const plainContent = (() => {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = currentNote.content || "";
+      const html = tempDiv.innerHTML;
+      const processedHtml = html.replace(/<\/(p|div)>/g, '\n').replace(/<br\s*\/?>/g, '\n');
+      tempDiv.innerHTML = processedHtml;
+      const lines = (tempDiv.textContent || tempDiv.innerText || "")
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line !== "" && line !== noteTitle); // Exclude empty lines and title
+      return lines.join('\n');
+    })();
 
     if (query && query.trim() !== "") {
       const queryLower = query.toLowerCase();
 
-      // Highlight title if query matches
+      // Check title match first
       if (noteTitle.toLowerCase().includes(queryLower)) {
+        isTitleMatch = true;
         const titleMatchIndex = noteTitle.toLowerCase().indexOf(queryLower);
         const actualTitleMatch = noteTitle.substring(titleMatchIndex, titleMatchIndex + query.length);
         titleHtml = escapeHtml(noteTitle.substring(0, titleMatchIndex)) +
@@ -89,8 +102,8 @@ export default function SwipeableNote({ note, isActive, onSelect, onDelete, sear
                     escapeHtml(noteTitle.substring(titleMatchIndex + query.length));
       }
 
-      // Check for content match and generate snippet
-      if (plainContent) {
+      // Only check content if there's no title match
+      if (!isTitleMatch && plainContent) {
         const contentMatchIndex = plainContent.toLowerCase().indexOf(queryLower);
         if (contentMatchIndex !== -1) {
           isContentMatchForPreview = true;
