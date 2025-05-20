@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getDeviceId } from './deviceId';
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -9,13 +10,20 @@ async function throwIfResNotOk(res: Response) {
 
 export async function apiRequest(
   method: string,
-  url: string,
-  data?: unknown | undefined,
+  path: string,
+  body?: any,
+  options?: { headers?: Record<string, string> },
 ): Promise<Response> {
-  const res = await fetch(url, {
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    'X-Device-ID': getDeviceId(),
+    ...(options?.headers || {}),
+  };
+
+  const res = await fetch(path, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
     credentials: "include",
   });
 

@@ -10,16 +10,6 @@ import { z } from "zod";
 // JSON/JSONB becomes text with mode: 'json'.
 // Arrays become text with mode: 'json' or need a separate table.
 
-export const users = sqliteTable("users", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  email: text("email"),
-  avatar_url: text("avatar_url"),
-  created_at: integer("created_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
-  updated_at: integer("updated_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
-});
-
 export const notes = sqliteTable("notes", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   title: text("title").notNull(),
@@ -27,7 +17,7 @@ export const notes = sqliteTable("notes", {
   is_pinned: integer("is_pinned", { mode: "boolean" }).default(false),
   tags: text("tags", { mode: "json" }).$type<string[]>(), // Storing array as JSON string
   color: text("color").default("#ffffff"),
-  user_id: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // Made non-nullable and added foreign key
+  device_id: text("device_id").notNull(), // Changed from user_id, made text
   created_at: integer("created_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
   updated_at: integer("updated_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
   is_deleted: integer("is_deleted", { mode: "boolean" }).default(false).notNull(),
@@ -35,7 +25,8 @@ export const notes = sqliteTable("notes", {
 
 export const aiChats = sqliteTable("ai_chats", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  note_id: integer("note_id").notNull(), // Assuming this relates to notes.id
+  note_id: integer("note_id").notNull().references(() => notes.id, { onDelete: "cascade" }), // Added reference
+  device_id: text("device_id").notNull(), // Added device_id for consistency, tied to note's device
   messages: text("messages", { mode: "json" }).notNull().$type<{role: string, content: string}[]>(),
   created_at: integer("created_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
   updated_at: integer("updated_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
@@ -43,23 +34,16 @@ export const aiChats = sqliteTable("ai_chats", {
 
 export const attachments = sqliteTable("attachments", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  note_id: integer("note_id").notNull(), // Assuming this relates to notes.id
+  note_id: integer("note_id").notNull().references(() => notes.id, { onDelete: "cascade" }), // Added reference
+  device_id: text("device_id").notNull(), // Added device_id for consistency, tied to note's device
   file_path: text("file_path").notNull(),
   file_type: text("file_type").notNull(),
   file_name: text("file_name").notNull(),
   created_at: integer("created_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
 });
 
-// Relations (should largely remain the same conceptually, but ensure field types match)
-export const userRelations = relations(users, ({ many }) => ({
-  notes: many(notes)
-}));
-
-export const noteRelations = relations(notes, ({ one, many }) => ({
-  user: one(users, {
-    fields: [notes.user_id],
-    references: [users.id],
-  }),
+// Relations
+export const noteRelations = relations(notes, ({ many }) => ({
   aiChats: many(aiChats),
   attachments: many(attachments)
 }));
@@ -79,15 +63,7 @@ export const attachmentRelations = relations(attachments, ({ one }) => ({
 }));
 
 
-// Zod schemas for insert/update (these should largely remain compatible if field names don't change)
-// createInsertSchema should adapt to the new SQLite types.
-
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-  email: true,
-  avatar_url: true,
-});
+// Zod schemas for insert/update
 
 export const insertNoteSchema = createInsertSchema(notes).pick({
   title: true,
@@ -95,7 +71,7 @@ export const insertNoteSchema = createInsertSchema(notes).pick({
   is_pinned: true,
   tags: true,
   color: true,
-  user_id: true,
+  device_id: true, // device_id will be added by server from header usually, or client if needed for optimistic updates
 });
 
 export const updateNoteSchema = createInsertSchema(notes).pick({
@@ -104,28 +80,29 @@ export const updateNoteSchema = createInsertSchema(notes).pick({
   is_pinned: true,
   tags: true,
   color: true,
+  // device_id is not updatable and used for where clause
 });
 
 export const insertAiChatSchema = createInsertSchema(aiChats).pick({
   note_id: true,
+  device_id: true,
   messages: true,
 });
 
 export const updateAiChatSchema = createInsertSchema(aiChats).pick({
   messages: true,
+  // device_id is not updatable
 });
 
 export const insertAttachmentSchema = createInsertSchema(attachments).pick({
   note_id: true,
+  device_id: true,
   file_path: true,
   file_type: true,
   file_name: true,
 });
 
-// Export types (these infer from the table schemas, so should update automatically)
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
-
+// Export types
 export type InsertNote = z.infer<typeof insertNoteSchema>;
 export type UpdateNote = z.infer<typeof updateNoteSchema>;
 export type Note = typeof notes.$inferSelect;
@@ -136,5 +113,3 @@ export type AiChat = typeof aiChats.$inferSelect;
 
 export type InsertAttachment = z.infer<typeof insertAttachmentSchema>;
 export type Attachment = typeof attachments.$inferSelect;
-
-// Removed forward declarations for userRelations and noteRelations as they are defined after tables.

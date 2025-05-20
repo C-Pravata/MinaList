@@ -68,10 +68,7 @@ export default function AIAssistant({ open, onClose, onInsertText }: AIAssistant
 
   const handleInsert = (text: string) => {
     onInsertText(text);
-    toast({
-      title: "Text inserted",
-      description: "AI response has been added to your note",
-    });
+    console.log("AI text inserted into note.");
     onClose();
   };
 

@@ -98,13 +98,15 @@ export default function NoteEditor() {
           title: titleToSave,
         });
         setSaving(false);
+        // console.log("Note auto-saved successfully."); // Optional: log success if needed
       } catch (error) {
         setSaving(false);
-        toast({
-          title: "Failed to save note",
-          description: "Your changes could not be saved",
-          variant: "destructive",
-        });
+        console.error("Failed to auto-save note:", error);
+        // toast({
+        //   title: "Failed to save note",
+        //   description: "Your changes could not be saved",
+        //   variant: "destructive",
+        // });
       }
     }, 1000);
   };
@@ -114,16 +116,14 @@ export default function NoteEditor() {
     
     try {
       await deleteActiveNote();
-      toast({
-        title: "Note deleted",
-        description: "Your note has been deleted",
-      });
+      console.log("Note deleted successfully from editor.");
+      // toast({
+      //   title: "Note deleted",
+      //   description: "Your note has been deleted",
+      // });
     } catch (error) {
-      toast({
-        title: "Failed to delete note",
-        description: "Your note could not be deleted",
-        variant: "destructive",
-      });
+      // Error handling for deleteActiveNote is in notesContext, uses console.error
+      // console.error("Failed to delete note from editor:", error); // Already handled by context
     }
   };
   
@@ -245,10 +245,11 @@ export default function NoteEditor() {
     setTitle(newTitleFromAI);
     handleSave(updatedContent, newTitleFromAI);
     
-    toast({
-      title: "AI text added",
-      description: "The AI-generated text has been added to your note",
-    });
+    console.log("AI text added to note.");
+    // toast({
+    //   title: "AI text added",
+    //   description: "The AI-generated text has been added to your note",
+    // });
   };
 
   return (

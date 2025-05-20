@@ -21,26 +21,14 @@ __export(schema_exports, {
   insertAiChatSchema: () => insertAiChatSchema,
   insertAttachmentSchema: () => insertAttachmentSchema,
   insertNoteSchema: () => insertNoteSchema,
-  insertUserSchema: () => insertUserSchema,
   noteRelations: () => noteRelations,
   notes: () => notes,
   updateAiChatSchema: () => updateAiChatSchema,
-  updateNoteSchema: () => updateNoteSchema,
-  userRelations: () => userRelations,
-  users: () => users
+  updateNoteSchema: () => updateNoteSchema
 });
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { relations, sql } from "drizzle-orm";
-var users = sqliteTable("users", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  email: text("email"),
-  avatar_url: text("avatar_url"),
-  created_at: integer("created_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
-  updated_at: integer("updated_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull()
-});
 var notes = sqliteTable("notes", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   title: text("title").notNull(),
@@ -49,37 +37,34 @@ var notes = sqliteTable("notes", {
   tags: text("tags", { mode: "json" }).$type(),
   // Storing array as JSON string
   color: text("color").default("#ffffff"),
-  user_id: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  // Made non-nullable and added foreign key
+  device_id: text("device_id").notNull(),
+  // Changed from user_id, made text
   created_at: integer("created_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
   updated_at: integer("updated_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
   is_deleted: integer("is_deleted", { mode: "boolean" }).default(false).notNull()
 });
 var aiChats = sqliteTable("ai_chats", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  note_id: integer("note_id").notNull(),
-  // Assuming this relates to notes.id
+  note_id: integer("note_id").notNull().references(() => notes.id, { onDelete: "cascade" }),
+  // Added reference
+  device_id: text("device_id").notNull(),
+  // Added device_id for consistency, tied to note's device
   messages: text("messages", { mode: "json" }).notNull().$type(),
   created_at: integer("created_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
   updated_at: integer("updated_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull()
 });
 var attachments = sqliteTable("attachments", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  note_id: integer("note_id").notNull(),
-  // Assuming this relates to notes.id
+  note_id: integer("note_id").notNull().references(() => notes.id, { onDelete: "cascade" }),
+  // Added reference
+  device_id: text("device_id").notNull(),
+  // Added device_id for consistency, tied to note's device
   file_path: text("file_path").notNull(),
   file_type: text("file_type").notNull(),
   file_name: text("file_name").notNull(),
   created_at: integer("created_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull()
 });
-var userRelations = relations(users, ({ many }) => ({
-  notes: many(notes)
-}));
-var noteRelations = relations(notes, ({ one, many }) => ({
-  user: one(users, {
-    fields: [notes.user_id],
-    references: [users.id]
-  }),
+var noteRelations = relations(notes, ({ many }) => ({
   aiChats: many(aiChats),
   attachments: many(attachments)
 }));
@@ -95,19 +80,14 @@ var attachmentRelations = relations(attachments, ({ one }) => ({
     references: [notes.id]
   })
 }));
-var insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-  email: true,
-  avatar_url: true
-});
 var insertNoteSchema = createInsertSchema(notes).pick({
   title: true,
   content: true,
   is_pinned: true,
   tags: true,
   color: true,
-  user_id: true
+  device_id: true
+  // device_id will be added by server from header usually, or client if needed for optimistic updates
 });
 var updateNoteSchema = createInsertSchema(notes).pick({
   title: true,
@@ -115,16 +95,20 @@ var updateNoteSchema = createInsertSchema(notes).pick({
   is_pinned: true,
   tags: true,
   color: true
+  // device_id is not updatable and used for where clause
 });
 var insertAiChatSchema = createInsertSchema(aiChats).pick({
   note_id: true,
+  device_id: true,
   messages: true
 });
 var updateAiChatSchema = createInsertSchema(aiChats).pick({
   messages: true
+  // device_id is not updatable
 });
 var insertAttachmentSchema = createInsertSchema(attachments).pick({
   note_id: true,
+  device_id: true,
   file_path: true,
   file_type: true,
   file_name: true
@@ -144,42 +128,19 @@ var db = drizzle(sqlite, { schema: schema_exports });
 
 // server/storage.ts
 import { eq, and, desc } from "drizzle-orm";
-import session from "express-session";
-import MemoryStoreFactory from "memorystore";
-var MemoryStore = MemoryStoreFactory(session);
 var DatabaseStorage = class {
-  sessionStore;
-  constructor() {
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 864e5
-      // prune expired entries every 24h
-    });
-  }
-  // User operations
-  async getUser(id) {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
-  }
-  async getUserByUsername(username) {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user;
-  }
-  async createUser(insertUser) {
-    const [user] = await db.insert(users).values(insertUser).returning();
-    return user;
-  }
   // Note operations
-  async getNotes(userId) {
+  async getNotes(deviceId) {
     return await db.select().from(notes).where(and(
       eq(notes.is_deleted, false),
-      eq(notes.user_id, userId)
+      eq(notes.device_id, deviceId)
     )).orderBy(desc(notes.updated_at));
   }
-  async getNote(id, userId) {
+  async getNote(id, deviceId) {
     const [note] = await db.select().from(notes).where(and(
       eq(notes.id, id),
-      eq(notes.is_deleted, false),
-      eq(notes.user_id, userId)
+      eq(notes.device_id, deviceId),
+      eq(notes.is_deleted, false)
     ));
     return note;
   }
@@ -187,216 +148,133 @@ var DatabaseStorage = class {
     const [note] = await db.insert(notes).values({
       title: insertNote.title,
       content: insertNote.content,
-      user_id: insertNote.user_id,
+      device_id: insertNote.device_id,
       is_pinned: insertNote.is_pinned,
       tags: insertNote.tags,
+      // Ensure correct type or undefined
       color: insertNote.color,
       is_deleted: false
     }).returning();
     return note;
   }
-  async updateNote(id, userId, updateData) {
-    const now = /* @__PURE__ */ new Date();
-    const dataToSet = {
-      updated_at: now
-    };
-    if (updateData.title !== void 0) dataToSet.title = updateData.title;
-    if (updateData.content !== void 0) dataToSet.content = updateData.content;
-    if (updateData.is_pinned !== void 0) dataToSet.is_pinned = updateData.is_pinned;
-    if (updateData.tags !== void 0) dataToSet.tags = updateData.tags;
-    if (updateData.color !== void 0) dataToSet.color = updateData.color;
-    const [updatedNote] = await db.update(notes).set(dataToSet).where(and(
-      eq(notes.id, id),
-      eq(notes.user_id, userId),
-      eq(notes.is_deleted, false)
-    )).returning();
-    return updatedNote;
-  }
-  async deleteNote(id, userId) {
-    const now = /* @__PURE__ */ new Date();
-    const [deletedNote] = await db.update(notes).set({
-      is_deleted: true,
-      updated_at: now
+  async updateNote(id, deviceId, noteUpdates) {
+    const [note] = await db.update(notes).set({
+      title: noteUpdates.title,
+      content: noteUpdates.content,
+      is_pinned: noteUpdates.is_pinned,
+      tags: noteUpdates.tags,
+      // Ensure correct type or undefined
+      color: noteUpdates.color,
+      updated_at: /* @__PURE__ */ new Date()
     }).where(and(
       eq(notes.id, id),
-      eq(notes.user_id, userId)
+      eq(notes.device_id, deviceId),
+      eq(notes.is_deleted, false)
     )).returning();
-    return !!deletedNote;
+    return note;
+  }
+  async deleteNote(id, deviceId) {
+    const result = await db.update(notes).set({ is_deleted: true, updated_at: /* @__PURE__ */ new Date() }).where(and(
+      eq(notes.id, id),
+      eq(notes.device_id, deviceId)
+    )).returning();
+    return result.length > 0;
   }
   // AI Chat operations
-  async getAiChats(noteId, userId) {
-    const note = await this.getNote(noteId, userId);
-    if (!note) return [];
-    return await db.select().from(aiChats).where(eq(aiChats.note_id, noteId)).orderBy(desc(aiChats.updated_at));
+  async getAiChats(noteId, deviceId) {
+    return await db.select({
+      id: aiChats.id,
+      note_id: aiChats.note_id,
+      device_id: aiChats.device_id,
+      messages: aiChats.messages,
+      created_at: aiChats.created_at,
+      updated_at: aiChats.updated_at
+    }).from(aiChats).innerJoin(notes, eq(aiChats.note_id, notes.id)).where(and(
+      eq(aiChats.note_id, noteId),
+      eq(notes.device_id, deviceId)
+    )).orderBy(desc(aiChats.created_at));
   }
-  async getAiChat(id, userId) {
-    const [chat] = await db.select().from(aiChats).leftJoin(notes, eq(aiChats.note_id, notes.id)).where(and(
+  async getAiChat(id, deviceId) {
+    const [chat] = await db.select({
+      id: aiChats.id,
+      note_id: aiChats.note_id,
+      device_id: aiChats.device_id,
+      messages: aiChats.messages,
+      created_at: aiChats.created_at,
+      updated_at: aiChats.updated_at
+    }).from(aiChats).innerJoin(notes, eq(aiChats.note_id, notes.id)).where(and(
       eq(aiChats.id, id),
-      eq(notes.user_id, userId)
-    )).limit(1);
-    return chat ? chat.ai_chats : void 0;
+      eq(notes.device_id, deviceId)
+    ));
+    return chat;
   }
-  async createAiChat(chat) {
-    const [newChat] = await db.insert(aiChats).values({
-      note_id: chat.note_id,
-      messages: chat.messages
+  async createAiChat(insertChat) {
+    const [chat] = await db.insert(aiChats).values({
+      note_id: insertChat.note_id,
+      device_id: insertChat.device_id,
+      messages: insertChat.messages
+      // Ensure correct type
     }).returning();
-    return newChat;
+    return chat;
   }
-  async updateAiChat(id, userId, chatUpdate) {
-    const existingChat = await this.getAiChat(id, userId);
-    if (!existingChat) {
-      return void 0;
-    }
-    const now = /* @__PURE__ */ new Date();
-    const dataToSet = {
-      updated_at: now
-    };
-    if (chatUpdate.messages !== void 0) dataToSet.messages = chatUpdate.messages;
-    const [updatedChatResult] = await db.update(aiChats).set(dataToSet).where(eq(aiChats.id, id)).returning();
-    return updatedChatResult;
+  async updateAiChat(id, deviceId, chatUpdates) {
+    const chatToUpdate = await this.getAiChat(id, deviceId);
+    if (!chatToUpdate) return void 0;
+    const [chat] = await db.update(aiChats).set({
+      messages: chatUpdates.messages,
+      // Ensure correct type or undefined
+      updated_at: /* @__PURE__ */ new Date()
+    }).where(eq(aiChats.id, id)).returning();
+    return chat;
+  }
+  async deleteAiChat(id, deviceId) {
+    const chatToDelete = await this.getAiChat(id, deviceId);
+    if (!chatToDelete) return false;
+    const result = await db.delete(aiChats).where(eq(aiChats.id, id)).returning();
+    return result.length > 0;
   }
   // Attachment operations
-  async getAttachments(noteId, userId) {
-    const note = await this.getNote(noteId, userId);
-    if (!note) return [];
-    return await db.select().from(attachments).where(eq(attachments.note_id, noteId));
+  async getAttachments(noteId, deviceId) {
+    return await db.select({
+      id: attachments.id,
+      note_id: attachments.note_id,
+      device_id: attachments.device_id,
+      file_path: attachments.file_path,
+      file_type: attachments.file_type,
+      file_name: attachments.file_name,
+      created_at: attachments.created_at
+    }).from(attachments).innerJoin(notes, eq(attachments.note_id, notes.id)).where(and(
+      eq(attachments.note_id, noteId),
+      eq(notes.device_id, deviceId)
+    )).orderBy(desc(attachments.created_at));
   }
-  async getAttachment(id, userId) {
-    const [attachmentData] = await db.select().from(attachments).leftJoin(notes, eq(attachments.note_id, notes.id)).where(and(
+  async getAttachment(id, deviceId) {
+    const [attachment] = await db.select({
+      id: attachments.id,
+      note_id: attachments.note_id,
+      device_id: attachments.device_id,
+      file_path: attachments.file_path,
+      file_type: attachments.file_type,
+      file_name: attachments.file_name,
+      created_at: attachments.created_at
+    }).from(attachments).innerJoin(notes, eq(attachments.note_id, notes.id)).where(and(
       eq(attachments.id, id),
-      eq(notes.user_id, userId)
-    )).limit(1);
-    return attachmentData ? attachmentData.attachments : void 0;
+      eq(notes.device_id, deviceId)
+    ));
+    return attachment;
   }
-  async createAttachment(attachment) {
-    const [newAttachment] = await db.insert(attachments).values(attachment).returning();
-    return newAttachment;
+  async createAttachment(insertAttachment) {
+    const [attachment] = await db.insert(attachments).values(insertAttachment).returning();
+    return attachment;
   }
-  async deleteAttachment(id, userId) {
-    const attachment = await this.getAttachment(id, userId);
-    if (!attachment) {
-      return false;
-    }
-    const [deletedAttachment] = await db.delete(attachments).where(eq(attachments.id, id)).returning();
-    return !!deletedAttachment;
+  async deleteAttachment(id, deviceId) {
+    const attachmentToDelete = await this.getAttachment(id, deviceId);
+    if (!attachmentToDelete) return false;
+    const result = await db.delete(attachments).where(eq(attachments.id, id)).returning();
+    return result.length > 0;
   }
 };
 var storage = new DatabaseStorage();
-
-// server/auth.ts
-import passport from "passport";
-import { Strategy as LocalStrategy } from "passport-local";
-import session2 from "express-session";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
-import { fromZodError } from "zod-validation-error";
-var scryptAsync = promisify(scrypt);
-async function hashPassword(password) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = await scryptAsync(password, salt, 64);
-  return `${buf.toString("hex")}.${salt}`;
-}
-async function comparePasswords(supplied, stored) {
-  const [hashed, salt] = stored.split(".");
-  const hashedBuf = Buffer.from(hashed, "hex");
-  const suppliedBuf = await scryptAsync(supplied, salt, 64);
-  return timingSafeEqual(hashedBuf, suppliedBuf);
-}
-function setupAuth(app2) {
-  const sessionSettings = {
-    secret: process.env.SESSION_SECRET || "mina-notetaking-app-secret",
-    resave: false,
-    saveUninitialized: false,
-    store: storage.sessionStore,
-    cookie: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 30 * 24 * 60 * 60 * 1e3
-      // 30 days
-    }
-  };
-  app2.set("trust proxy", 1);
-  app2.use(session2(sessionSettings));
-  app2.use(passport.initialize());
-  app2.use(passport.session());
-  passport.use(
-    new LocalStrategy(async (username, password, done) => {
-      try {
-        const user = await storage.getUserByUsername(username);
-        if (!user || !await comparePasswords(password, user.password)) {
-          return done(null, false);
-        } else {
-          return done(null, user);
-        }
-      } catch (error) {
-        return done(error);
-      }
-    })
-  );
-  passport.serializeUser((user, done) => done(null, user.id));
-  passport.deserializeUser(async (id, done) => {
-    try {
-      const user = await storage.getUser(id);
-      done(null, user);
-    } catch (error) {
-      done(error);
-    }
-  });
-  app2.post("/api/register", async (req, res, next) => {
-    try {
-      const result = insertUserSchema.safeParse(req.body);
-      if (!result.success) {
-        const validationError = fromZodError(result.error);
-        return res.status(400).json({ message: validationError.message });
-      }
-      const existingUser = await storage.getUserByUsername(req.body.username);
-      if (existingUser) {
-        return res.status(400).json({ message: "Username already exists" });
-      }
-      const hashedPassword = await hashPassword(req.body.password);
-      const userData = {
-        ...result.data,
-        password: hashedPassword
-      };
-      const user = await storage.createUser(userData);
-      req.login(user, (err) => {
-        if (err) return next(err);
-        const { password, ...userWithoutPassword } = user;
-        res.status(201).json(userWithoutPassword);
-      });
-    } catch (error) {
-      console.error("Registration error:", error);
-      res.status(500).json({ message: "An error occurred during registration" });
-    }
-  });
-  app2.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err, user, info) => {
-      if (err) return next(err);
-      if (!user) {
-        return res.status(401).json({ message: "Invalid username or password" });
-      }
-      req.login(user, (err2) => {
-        if (err2) return next(err2);
-        const { password, ...userWithoutPassword } = user;
-        res.status(200).json(userWithoutPassword);
-      });
-    })(req, res, next);
-  });
-  app2.post("/api/logout", (req, res, next) => {
-    req.logout((err) => {
-      if (err) return next(err);
-      res.sendStatus(200);
-    });
-  });
-  app2.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
-    const { password, ...userWithoutPassword } = req.user;
-    res.json(userWithoutPassword);
-  });
-}
 
 // server/geminiApi.ts
 import dotenv from "dotenv";
@@ -439,10 +317,18 @@ async function generateGeminiResponse(messages) {
 }
 
 // server/routes.ts
-import { fromZodError as fromZodError2 } from "zod-validation-error";
+import { fromZodError } from "zod-validation-error";
 import multer from "multer";
 import path2 from "path";
 import fs from "fs";
+var deviceIdMiddleware = (req, res, next) => {
+  const deviceId = req.headers["x-device-id"];
+  if (!deviceId) {
+    return res.status(400).json({ message: "Device ID (x-device-id header) is required" });
+  }
+  req.deviceId = deviceId;
+  next();
+};
 var upload = multer({
   storage: multer.diskStorage({
     destination: function(req, file, cb) {
@@ -470,99 +356,97 @@ var upload = multer({
     }
   }
 });
-var isAuthenticated = (req, res, next) => {
-  if (req.isAuthenticated() && req.user && typeof req.user.id === "number") {
-    return next();
-  }
-  return res.status(401).json({ message: "Unauthorized. Please log in." });
-};
 async function registerRoutes(app2) {
-  setupAuth(app2);
   app2.use("/uploads", express.static(path2.join(process.cwd(), "uploads")));
-  app2.get("/api/notes", isAuthenticated, async (req, res) => {
-    const userId = req.user?.id;
-    console.log(`[GET /api/notes] Authenticated User ID: ${userId}`);
+  app2.use("/api", deviceIdMiddleware);
+  app2.get("/api/notes", async (req, res) => {
+    const deviceId = req.deviceId;
+    console.log(`[GET /api/notes] Device ID: ${deviceId}`);
     try {
-      const notes2 = await storage.getNotes(userId);
+      const notes2 = await storage.getNotes(deviceId);
       res.json(notes2);
     } catch (error) {
+      console.error("Failed to retrieve notes:", error);
       res.status(500).json({ message: "Failed to retrieve notes" });
     }
   });
-  app2.get("/api/notes/:id", isAuthenticated, async (req, res) => {
-    const userId = req.user?.id;
+  app2.get("/api/notes/:id", async (req, res) => {
+    const deviceId = req.deviceId;
     const noteId = parseInt(req.params.id);
-    console.log(`[GET /api/notes/:id] Authenticated User ID: ${userId}, Note ID: ${noteId}`);
+    console.log(`[GET /api/notes/:id] Device ID: ${deviceId}, Note ID: ${noteId}`);
     try {
       if (isNaN(noteId)) {
         return res.status(400).json({ message: "Invalid note ID" });
       }
-      const note = await storage.getNote(noteId, userId);
+      const note = await storage.getNote(noteId, deviceId);
       if (!note) {
-        return res.status(404).json({ message: "Note not found or not authorized" });
+        return res.status(404).json({ message: "Note not found or not authorized for this device" });
       }
       res.json(note);
     } catch (error) {
+      console.error("Failed to retrieve note:", error);
       res.status(500).json({ message: "Failed to retrieve note" });
     }
   });
-  app2.post("/api/notes", isAuthenticated, async (req, res) => {
-    const userId = req.user?.id;
-    console.log(`[POST /api/notes] Authenticated User ID: ${userId}`);
+  app2.post("/api/notes", async (req, res) => {
+    const deviceId = req.deviceId;
+    console.log(`[POST /api/notes] Device ID: ${deviceId}`);
     try {
-      const noteData = { ...req.body, user_id: userId };
-      delete noteData.id;
+      const noteData = { ...req.body, device_id: deviceId };
       const result = insertNoteSchema.safeParse(noteData);
       if (!result.success) {
-        const validationError = fromZodError2(result.error);
+        const validationError = fromZodError(result.error);
         return res.status(400).json({ message: validationError.message });
       }
       const newNote = await storage.createNote(result.data);
       res.status(201).json(newNote);
     } catch (error) {
+      console.error("Failed to create note:", error);
       res.status(500).json({ message: "Failed to create note" });
     }
   });
-  app2.put("/api/notes/:id", isAuthenticated, async (req, res) => {
-    const userId = req.user?.id;
+  app2.put("/api/notes/:id", async (req, res) => {
+    const deviceId = req.deviceId;
     const noteId = parseInt(req.params.id);
-    console.log(`[PUT /api/notes/:id] Authenticated User ID: ${userId}, Note ID: ${noteId}`);
+    console.log(`[PUT /api/notes/:id] Device ID: ${deviceId}, Note ID: ${noteId}`);
     try {
       if (isNaN(noteId)) {
         return res.status(400).json({ message: "Invalid note ID" });
       }
       const result = updateNoteSchema.safeParse(req.body);
       if (!result.success) {
-        const validationError = fromZodError2(result.error);
+        const validationError = fromZodError(result.error);
         return res.status(400).json({ message: validationError.message });
       }
-      const updatedNote = await storage.updateNote(noteId, userId, result.data);
+      const updatedNote = await storage.updateNote(noteId, deviceId, result.data);
       if (!updatedNote) {
-        return res.status(404).json({ message: "Note not found or not authorized" });
+        return res.status(404).json({ message: "Note not found or not authorized for this device" });
       }
       res.json(updatedNote);
     } catch (error) {
+      console.error("Failed to update note:", error);
       res.status(500).json({ message: "Failed to update note" });
     }
   });
-  app2.delete("/api/notes/:id", isAuthenticated, async (req, res) => {
-    const userId = req.user?.id;
+  app2.delete("/api/notes/:id", async (req, res) => {
+    const deviceId = req.deviceId;
     const noteId = parseInt(req.params.id);
-    console.log(`[DELETE /api/notes/:id] Authenticated User ID: ${userId}, Note ID: ${noteId}`);
+    console.log(`[DELETE /api/notes/:id] Device ID: ${deviceId}, Note ID: ${noteId}`);
     try {
       if (isNaN(noteId)) {
         return res.status(400).json({ message: "Invalid note ID" });
       }
-      const success = await storage.deleteNote(noteId, userId);
+      const success = await storage.deleteNote(noteId, deviceId);
       if (!success) {
-        return res.status(404).json({ message: "Note not found or not authorized" });
+        return res.status(404).json({ message: "Note not found or not authorized for this device" });
       }
       res.status(204).send();
     } catch (error) {
+      console.error("Failed to delete note:", error);
       res.status(500).json({ message: "Failed to delete note" });
     }
   });
-  app2.post("/api/upload", isAuthenticated, upload.single("image"), (req, res) => {
+  app2.post("/api/upload", async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -575,174 +459,203 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to upload file" });
     }
   });
-  app2.post("/api/notes/:noteId/attachments", isAuthenticated, async (req, res) => {
+  app2.post("/api/notes/:noteId/attachments", upload.single("file"), async (req, res) => {
+    const deviceId = req.deviceId;
+    const noteId = parseInt(req.params.noteId);
+    console.log(`[POST /api/notes/:noteId/attachments] Device ID: ${deviceId}, Note ID: ${noteId}`);
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded." });
+    }
     try {
-      const userId = req.user.id;
-      const noteId = parseInt(req.params.noteId);
-      if (isNaN(noteId)) {
-        return res.status(400).json({ message: "Invalid note ID" });
-      }
-      const note = await storage.getNote(noteId, userId);
-      if (!note) {
-        return res.status(404).json({ message: "Note not found or not authorized" });
-      }
-      const result = insertAttachmentSchema.safeParse({
-        ...req.body,
-        note_id: noteId
-      });
+      if (isNaN(noteId)) return res.status(400).json({ message: "Invalid note ID" });
+      const note = await storage.getNote(noteId, deviceId);
+      if (!note) return res.status(404).json({ message: "Note not found or not authorized" });
+      const attachmentData = {
+        note_id: noteId,
+        device_id: deviceId,
+        file_path: req.file.path,
+        // path from multer
+        file_type: req.file.mimetype,
+        file_name: req.file.originalname
+      };
+      const result = insertAttachmentSchema.safeParse(attachmentData);
       if (!result.success) {
-        const validationError = fromZodError2(result.error);
-        return res.status(400).json({ message: validationError.message });
+        fs.unlink(req.file.path, (err) => {
+          if (err) console.error("Failed to delete orphaned upload:", err);
+        });
+        return res.status(400).json({ message: fromZodError(result.error).message });
       }
-      const attachment = await storage.createAttachment(result.data);
-      res.status(201).json(attachment);
+      const newAttachment = await storage.createAttachment(result.data);
+      res.status(201).json(newAttachment);
     } catch (error) {
+      console.error("Failed to create attachment:", error);
+      if (req.file && req.file.path) {
+        fs.unlink(req.file.path, (err) => {
+          if (err) console.error("Failed to delete orphaned upload on error:", err);
+        });
+      }
       res.status(500).json({ message: "Failed to create attachment" });
     }
   });
-  app2.get("/api/notes/:noteId/attachments", isAuthenticated, async (req, res) => {
+  app2.get("/api/notes/:noteId/attachments", async (req, res) => {
+    const deviceId = req.deviceId;
+    const noteId = parseInt(req.params.noteId);
+    console.log(`[GET /api/notes/:noteId/attachments] Device ID: ${deviceId}, Note ID: ${noteId}`);
     try {
-      const userId = req.user.id;
-      const noteId = parseInt(req.params.noteId);
-      if (isNaN(noteId)) {
-        return res.status(400).json({ message: "Invalid note ID" });
-      }
-      const attachments2 = await storage.getAttachments(noteId, userId);
-      res.json(attachments2);
+      if (isNaN(noteId)) return res.status(400).json({ message: "Invalid note ID" });
+      const note = await storage.getNote(noteId, deviceId);
+      if (!note) return res.status(404).json({ message: "Note not found or not authorized" });
+      const attachmentsResult = await storage.getAttachments(noteId, deviceId);
+      res.json(attachmentsResult);
     } catch (error) {
+      console.error("Failed to retrieve attachments:", error);
       res.status(500).json({ message: "Failed to retrieve attachments" });
     }
   });
-  app2.delete("/api/attachments/:id", isAuthenticated, async (req, res) => {
+  app2.delete("/api/attachments/:attachmentId", async (req, res) => {
+    const deviceId = req.deviceId;
+    const attachmentId = parseInt(req.params.attachmentId);
+    console.log(`[DELETE /api/attachments/:attachmentId] Device ID: ${deviceId}, Attachment ID: ${attachmentId}`);
     try {
-      const userId = req.user.id;
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "Invalid attachment ID" });
-      }
-      const success = await storage.deleteAttachment(id, userId);
-      if (!success) {
+      if (isNaN(attachmentId)) return res.status(400).json({ message: "Invalid attachment ID" });
+      const attachmentToDelete = await storage.getAttachment(attachmentId, deviceId);
+      if (!attachmentToDelete) {
         return res.status(404).json({ message: "Attachment not found or not authorized" });
       }
-      res.status(204).send();
+      const success = await storage.deleteAttachment(attachmentId, deviceId);
+      if (success) {
+        fs.unlink(attachmentToDelete.file_path, (err) => {
+          if (err) {
+            console.error(`Failed to delete attachment file ${attachmentToDelete.file_path}:`, err);
+          } else {
+            console.log(`Successfully deleted attachment file: ${attachmentToDelete.file_path}`);
+          }
+        });
+        res.status(204).send();
+      } else {
+        res.status(404).json({ message: "Attachment not found or not authorized, or DB deletion failed" });
+      }
     } catch (error) {
+      console.error("Failed to delete attachment:", error);
       res.status(500).json({ message: "Failed to delete attachment" });
     }
   });
-  app2.get("/api/notes/:noteId/ai-chats", isAuthenticated, async (req, res) => {
+  app2.get("/api/notes/:noteId/ai-chats", async (req, res) => {
+    const deviceId = req.deviceId;
+    const noteId = parseInt(req.params.noteId);
+    console.log(`[GET /api/notes/:noteId/ai-chats] Device ID: ${deviceId}, Note ID: ${noteId}`);
     try {
-      const userId = req.user.id;
-      const noteId = parseInt(req.params.noteId);
       if (isNaN(noteId)) {
         return res.status(400).json({ message: "Invalid note ID" });
       }
-      const chats = await storage.getAiChats(noteId, userId);
+      const chats = await storage.getAiChats(noteId, deviceId);
       res.json(chats);
     } catch (error) {
+      console.error("Failed to retrieve AI chats:", error);
       res.status(500).json({ message: "Failed to retrieve AI chats" });
     }
   });
-  app2.post("/api/notes/:noteId/ai-chats", isAuthenticated, async (req, res) => {
+  app2.post("/api/notes/:noteId/ai-chats", async (req, res) => {
+    const deviceId = req.deviceId;
+    const noteId = parseInt(req.params.noteId);
+    console.log(`[POST /api/notes/:noteId/ai-chats] Device ID: ${deviceId}, Note ID: ${noteId}`);
     try {
-      const userId = req.user.id;
-      const noteId = parseInt(req.params.noteId);
       if (isNaN(noteId)) {
         return res.status(400).json({ message: "Invalid note ID" });
       }
-      const note = await storage.getNote(noteId, userId);
+      const note = await storage.getNote(noteId, deviceId);
       if (!note) {
         return res.status(404).json({ message: "Note not found or not authorized" });
       }
       const result = insertAiChatSchema.safeParse({
         ...req.body,
-        note_id: noteId
+        note_id: noteId,
+        device_id: deviceId
       });
       if (!result.success) {
-        const validationError = fromZodError2(result.error);
+        const validationError = fromZodError(result.error);
         return res.status(400).json({ message: validationError.message });
       }
       const chat = await storage.createAiChat(result.data);
       res.status(201).json(chat);
     } catch (error) {
+      console.error("Failed to create AI chat:", error);
       res.status(500).json({ message: "Failed to create AI chat" });
     }
   });
-  app2.put("/api/ai-chats/:id", isAuthenticated, async (req, res) => {
+  app2.put("/api/ai-chats/:id", async (req, res) => {
+    const deviceId = req.deviceId;
+    const id = parseInt(req.params.id);
+    console.log(`[PUT /api/ai-chats/:id] Device ID: ${deviceId}, Chat ID: ${id}`);
     try {
-      const userId = req.user.id;
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "Invalid chat ID" });
-      }
+      if (isNaN(id)) return res.status(400).json({ message: "Invalid chat ID" });
       const result = updateAiChatSchema.safeParse(req.body);
       if (!result.success) {
-        const validationError = fromZodError2(result.error);
-        return res.status(400).json({ message: validationError.message });
+        return res.status(400).json({ message: fromZodError(result.error).message });
       }
-      const updatedChat = await storage.updateAiChat(id, userId, result.data);
-      if (!updatedChat) {
-        return res.status(404).json({ message: "AI chat not found or not authorized" });
-      }
+      const updatedChat = await storage.updateAiChat(id, deviceId, result.data);
+      if (!updatedChat) return res.status(404).json({ message: "Chat not found or not authorized" });
       res.json(updatedChat);
     } catch (error) {
+      console.error("Failed to update AI chat:", error);
       res.status(500).json({ message: "Failed to update AI chat" });
     }
   });
-  app2.get("/api/ai-chats/:id", isAuthenticated, async (req, res) => {
+  app2.get("/api/ai-chats/:id", async (req, res) => {
+    const deviceId = req.deviceId;
+    const id = parseInt(req.params.id);
+    console.log(`[GET /api/ai-chats/:id] Device ID: ${deviceId}, Chat ID: ${id}`);
     try {
-      const userId = req.user.id;
-      const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid chat ID" });
       }
-      const chat = await storage.getAiChat(id, userId);
+      const chat = await storage.getAiChat(id, deviceId);
       if (!chat) {
         return res.status(404).json({ message: "AI chat not found or not authorized" });
       }
       res.json(chat);
     } catch (error) {
+      console.error("Failed to retrieve AI chat:", error);
       res.status(500).json({ message: "Failed to retrieve AI chat" });
     }
   });
-  app2.post("/api/ai/chat", isAuthenticated, async (req, res) => {
+  app2.post("/api/notes/:noteId/ai/generate", async (req, res) => {
+    const deviceId = req.deviceId;
+    const noteId = parseInt(req.params.noteId);
+    const { prompt, history } = req.body;
+    console.log(`[POST /api/notes/:noteId/ai/generate] Device ID: ${deviceId}, Note ID: ${noteId}`);
     try {
-      const { messages } = req.body;
-      if (!Array.isArray(messages)) {
-        return res.status(400).json({ message: "Invalid request format: messages must be an array" });
+      if (isNaN(noteId)) {
+        return res.status(400).json({ message: "Invalid note ID" });
       }
-      const geminiMessages = messages.map((msg) => ({
-        role: msg.role === "assistant" ? "model" : msg.role === "system" ? "user" : msg.role,
-        parts: [{ text: msg.content }]
-      }));
-      const responseText = await generateGeminiResponse(geminiMessages);
-      res.json({
-        message: {
-          role: "assistant",
-          content: responseText
-        }
-      });
+      const note = await storage.getNote(noteId, deviceId);
+      if (!note) {
+        return res.status(404).json({ message: "Note not found or not authorized for this device" });
+      }
+      if (!prompt) {
+        return res.status(400).json({ message: "Prompt is required" });
+      }
+      const aiResponse = await generateGeminiResponse(prompt, history);
+      res.json({ response: aiResponse });
     } catch (error) {
-      console.error("Error in AI chat endpoint:", error);
-      res.status(500).json({
-        message: "Failed to get AI response",
-        error: error instanceof Error ? error.message : String(error)
-      });
+      console.error("AI response generation error:", error);
+      res.status(500).json({ message: error.message || "Failed to generate AI response" });
     }
   });
-  app2.post("/api/ai/dashboard-chat", isAuthenticated, async (req, res) => {
+  app2.post("/api/ai/dashboard-chat", async (req, res) => {
     try {
       const { messages, notes: notes2 } = req.body;
-      const userId = req.user?.id;
+      const deviceId = req.deviceId;
       if (!Array.isArray(messages) || !Array.isArray(notes2)) {
         return res.status(400).json({ message: "Invalid request format: messages and notes must be arrays" });
       }
-      const userNotes = await storage.getNotes(userId);
-      const userNoteIds = new Set(userNotes.map((note) => note.id));
-      const validNotes = notes2.filter((note) => userNoteIds.has(note.id));
+      const deviceNotes = await storage.getNotes(deviceId);
+      const deviceNoteIds = new Set(deviceNotes.map((note) => note.id));
+      const validNotes = notes2.filter((note) => deviceNoteIds.has(note.id));
       const htmlToPlainText = (html) => {
         return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
       };
-      let notesContext = "USER'S NOTES CONTEXT:\n\n";
+      let notesContext = "DEVICE'S NOTES CONTEXT:\n\n";
       validNotes.forEach((note, i) => {
         const plainContent = htmlToPlainText(note.content || "");
         notesContext += `Note #${i + 1} [ID: ${note.id}]

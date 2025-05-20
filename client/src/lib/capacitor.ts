@@ -57,18 +57,19 @@ async function createNewNoteFromSharedContent(content: { title?: string, text?: 
     // how notes are created in the application.
     const title = content.title || 'Shared Content';
     
+    console.log("Content shared and saved as a new note (placeholder).");
     // Show a toast to let the user know a note was created
-    toast({
-      title: 'Content shared',
-      description: 'The shared content has been saved as a new note.',
-    });
+    // toast({
+    //   title: 'Content shared',
+    //   description: 'The shared content has been saved as a new note.',
+    // });
     
   } catch (error) {
     console.error('Error creating note from shared content:', error);
-    toast({
-      title: 'Error',
-      description: 'Failed to create note from shared content.',
-      variant: 'destructive',
-    });
+    // toast({
+    //   title: 'Error',
+    //   description: 'Failed to create note from shared content.',
+    //   variant: 'destructive',
+    // });
   }
 }

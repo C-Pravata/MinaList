@@ -1,7 +1,7 @@
 import { Search, X, Check, Bot, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import ThemeToggle from "@/components/ThemeToggle";
-import UserProfile from "@/components/UserProfile";
+import ThemeToggle from "@/components/theme-provider";
+// import UserProfile from "@/components/UserProfile"; // Removed
 
 interface HeaderProps {
   isEditing: boolean;
@@ -43,16 +43,16 @@ export default function Header({ isEditing, onDone, onBack }: HeaderProps) {
           </Button>
         ) : (
           <>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              aria-label="Search notes"
-              className="rounded-full hover:bg-secondary/40 h-8 w-8"
+            {/* <Button 
+              variant=\"ghost\" 
+              size=\"icon\" 
+              aria-label=\"Search notes\"
+              className=\"rounded-full hover:bg-secondary/40 h-8 w-8\"
             >
-              <Search className="h-[18px] w-[18px] text-foreground/80" />
-            </Button>
+              <Search className=\"h-[18px] w-[18px] text-foreground/80\" />
+            </Button> */}
             <ThemeToggle />
-            <UserProfile />
+            {/* <UserProfile /> */}{/* Removed */}
           </>
         )}
       </div>

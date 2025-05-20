@@ -30,11 +30,12 @@ export default function Home() {
       setActiveNote(newNote);
       setIsEditing(true);
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create new note",
-        variant: "destructive",
-      });
+      console.error("Failed to create new note", error);
+      // toast({
+      //   title: "Error",
+      //   description: "Failed to create new note",
+      //   variant: "destructive",
+      // });
     }
   };
 
@@ -46,12 +47,12 @@ export default function Home() {
   const handleDone = () => {
     setIsEditing(false);
     setActiveNote(null);
-    
-    toast({
-      title: "Note saved",
-      description: "Your changes have been saved",
-      variant: "default",
-    });
+    console.log("Note saved (changes persisted by editor's autosave).");
+    // toast({
+    //   title: "Note saved",
+    //   description: "Your changes have been saved",
+    //   variant: "default",
+    // });
   };
   
   const handleBack = async () => {

@@ -4,8 +4,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Note, InsertNote as FullInsertNote, UpdateNote } from "@shared/schema";
 
-// Client-side payload for creating a note does not include user_id
-type ClientInsertNote = Omit<FullInsertNote, "user_id">;
+// Client-side payload for creating a note does not include device_id
+type ClientInsertNote = Omit<FullInsertNote, "device_id">;
 
 interface NotesContextType {
   notes: Note[];
@@ -28,6 +28,12 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   // Fetch all notes
   const { data: notes = [], isLoading } = useQuery<Note[]>({
     queryKey: ['/api/notes'],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/notes");
+      // apiRequest now throws on non-ok responses, so direct res.json() is fine
+      // We might still want to check res.ok if apiRequest behavior changes or for belt-and-suspenders
+      return res.json(); 
+    },
     staleTime: 1000 * 60, // 1 minute
   });
 
@@ -49,12 +55,13 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/notes'] });
     },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to create note",
-        variant: "destructive",
-      });
+    onError: (error) => {
+      console.error("Failed to create note:", error);
+      // toast({
+      //   title: "Error",
+      //   description: "Failed to create note",
+      //   variant: "destructive",
+      // });
     }
   });
 
@@ -67,12 +74,13 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/notes'] });
     },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to update note",
-        variant: "destructive",
-      });
+    onError: (error) => {
+      console.error("Failed to update note:", error);
+      // toast({
+      //   title: "Error",
+      //   description: "Failed to update note",
+      //   variant: "destructive",
+      // });
     }
   });
 
@@ -84,12 +92,13 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/notes'] });
     },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to delete note",
-        variant: "destructive",
-      });
+    onError: (error) => {
+      console.error("Failed to delete note:", error);
+      // toast({
+      //   title: "Error",
+      //   description: "Failed to delete note",
+      //   variant: "destructive",
+      // });
     }
   });
 

@@ -50,16 +50,14 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
   const handleDeleteNote = async (id: number) => {
     try {
       await deleteNote(id);
-      toast({
-        title: "Note deleted",
-        description: "Your note has been permanently deleted",
-      });
+      console.log("Note deleted successfully from list.");
+      // toast({
+      //   title: "Note deleted",
+      //   description: "Your note has been permanently deleted",
+      // });
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete note",
-        variant: "destructive",
-      });
+      // Error handling for deleteNote is in notesContext, uses console.error
+      // console.error("Failed to delete note from list:", error); // Already handled by context
     }
   };
 
