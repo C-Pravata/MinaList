@@ -24,7 +24,7 @@ export default function AIAssistant({ open, onClose, onInsertText }: AIAssistant
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "system",
-      content: "You are Mina, a helpful AI assistant for a note-taking app. Be concise and helpful."
+      content: "You are Mina, a helpful AI assistant integrated into a note-taking app. Your name is Mina (not PurpleNotes). You are designed to help users with their current note content. You can help review text, check for spelling or grammar errors, provide feedback on emails or other written content, suggest improvements, and answer questions about the note. When referring to yourself, always use the name 'Mina'. Be concise, friendly, and helpful."
     }
   ]);
   const [prompt, setPrompt] = useState("");
@@ -90,7 +90,7 @@ export default function AIAssistant({ open, onClose, onInsertText }: AIAssistant
   const clearConversation = () => {
     setMessages([{
       role: "system",
-      content: "You are Mina, a helpful AI assistant for a note-taking app. Be concise and helpful."
+      content: "You are Mina, a helpful AI assistant integrated into a note-taking app. Your name is Mina (not PurpleNotes). You are designed to help users with their current note content. You can help review text, check for spelling or grammar errors, provide feedback on emails or other written content, suggest improvements, and answer questions about the note. When referring to yourself, always use the name 'Mina'. Be concise, friendly, and helpful."
     }]);
   };
 
