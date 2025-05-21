@@ -623,7 +623,7 @@ async function registerRoutes(app2) {
     const deviceId = req.deviceId;
     const noteId = parseInt(req.params.noteId);
     const { prompt, history } = req.body;
-    console.log(`[POST /api/notes/:noteId/ai/generate] Device ID: ${deviceId}, Note ID: ${noteId}`);
+    console.log(`[POST /api/notes/:noteId/ai/generate] Device ID: ${deviceId}, Note ID: ${noteId}, Prompt: "${prompt}", History items: ${history?.length}`);
     try {
       if (isNaN(noteId)) {
         return res.status(400).json({ message: "Invalid note ID" });
@@ -635,7 +635,49 @@ async function registerRoutes(app2) {
       if (!prompt) {
         return res.status(400).json({ message: "Prompt is required" });
       }
-      const aiResponse = await generateGeminiResponse(prompt, history);
+      const htmlToPlainText = (html) => {
+        return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+      };
+      const plainNoteContent = htmlToPlainText(note.content || "");
+      const systemMessage = {
+        role: "user",
+        // Using 'user' role since Gemini API doesn't have a 'system' role
+        parts: [{
+          text: `You are Mina, a helpful AI assistant integrated into a note-taking app. Your name is Mina (not PurpleNotes).
+          
+This conversation is about the following note content. Please use this content as context when answering the user's questions:
+
+TITLE: ${note.title || "Untitled"}
+
+CONTENT:
+${plainNoteContent}
+
+Remember, when the user asks about emails, text, or content, they are referring to the note content above. 
+You can help review text, check for spelling/grammar errors, provide feedback on emails or other written content, 
+suggest improvements, summarize, or answer questions about this specific note.
+When referring to yourself, always use the name "Mina". Be concise, friendly, and helpful.`
+        }]
+      };
+      const messagesForGemini = [systemMessage];
+      if (history && history.length > 0) {
+        history.forEach((clientMsg) => {
+          let geminiRole = void 0;
+          if (clientMsg.role === "user") {
+            geminiRole = "user";
+          } else if (clientMsg.role === "assistant") {
+            geminiRole = "model";
+          }
+          if (geminiRole) {
+            messagesForGemini.push({
+              role: geminiRole,
+              parts: [{ text: clientMsg.content }]
+            });
+          }
+        });
+      }
+      messagesForGemini.push({ role: "user", parts: [{ text: prompt }] });
+      console.log("Sending to Gemini:", JSON.stringify({ contents: messagesForGemini.map((m) => ({ role: m.role, text: m.parts[0].text.substring(0, 50) + (m.parts[0].text.length > 50 ? "..." : "") })) }, null, 2));
+      const aiResponse = await generateGeminiResponse(messagesForGemini);
       res.json({ response: aiResponse });
     } catch (error) {
       console.error("AI response generation error:", error);

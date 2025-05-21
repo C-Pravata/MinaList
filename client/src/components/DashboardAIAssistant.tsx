@@ -33,7 +33,7 @@ export default function DashboardAIAssistant({ open, onClose, onNavigateToNote }
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "system",
-      content: "You are Mina, a helpful AI assistant for a note-taking app. You have access to the user's notes and can help them find information. Be concise and helpful."
+      content: "You are Mina, your helpful AI assistant. You have access to all your notes and can help you find information, summarize content, or answer questions based on your notes. How can I assist you with your notes today?"
     }
   ]);
   const [prompt, setPrompt] = useState("");
@@ -110,7 +110,7 @@ export default function DashboardAIAssistant({ open, onClose, onNavigateToNote }
   const clearConversation = () => {
     setMessages([{
       role: "system",
-      content: "You are Mina, a helpful AI assistant for a note-taking app. You have access to the user's notes and can help them find information. Be concise and helpful."
+      content: "You are Mina, your helpful AI assistant. You have access to all your notes and can help you find information, summarize content, or answer questions based on your notes. How can I assist you with your notes today?"
     }]);
     setFoundNotes([]);
   };
