@@ -419,21 +419,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create a system message with the note content as context
       const plainNoteContent = htmlToPlainText(note.content || '');
       const systemMessage: GeminiMessage = {
-        role: 'user', // Using 'user' role since Gemini API doesn't have a 'system' role
+        role: 'user', // Using 'user' role for system-like instructions with Gemini
         parts: [{ 
-          text: `You are Mina, a helpful AI assistant integrated into a note-taking app. Your name is Mina (not PurpleNotes).
-          
-This conversation is about the following note content. Please use this content as context when answering the user's questions:
+          text: `You are Mina, a helpful AI assistant. Your name is Mina. You are currently assisting within a specific note in a note-taking application.
 
+The content of the current note is provided below for your reference. You can use this context if the user's query seems related to it (e.g., if they ask about "this email", "the text below", or "this note").
+However, the user may also ask general questions or questions unrelated to this specific note. In all cases, be helpful and use your broad knowledge to answer as best as you can.
+
+---
+CURRENT NOTE CONTEXT:
 TITLE: ${note.title || 'Untitled'}
 
 CONTENT:
 ${plainNoteContent}
+---
+End of Current Note Context.
 
-Remember, when the user asks about emails, text, or content, they are referring to the note content above. 
-You can help review text, check for spelling/grammar errors, provide feedback on emails or other written content, 
-suggest improvements, summarize, or answer questions about this specific note.
-When referring to yourself, always use the name "Mina". Be concise, friendly, and helpful.` 
+Your primary goal is to assist the user. If their query is about the note content above, use it. Otherwise, answer their general questions.
+You can help review text, check spelling/grammar, provide feedback, summarize, or answer questions.
+When referring to yourself, always use the name "Mina". Be concise, friendly, and helpful.`
         }]
       };
 
