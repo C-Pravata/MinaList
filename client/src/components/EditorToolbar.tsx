@@ -11,7 +11,8 @@ import {
   Mic,
   AlignLeft,
   MessageSquareText,
-  Share
+  Share,
+  Bot
 } from "lucide-react";
 import { ShareService } from "@/services/ShareService";
 import { Button } from "@/components/ui/button";
@@ -356,11 +357,11 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-8 px-3 rounded-full text-primary hover:bg-primary/10 flex items-center justify-center gap-1.5"
+                className="h-8 w-8 rounded-full text-primary hover:bg-primary/10 flex items-center justify-center"
                 onClick={onAiAssistantToggle}
+                aria-label="AI Assistant"
               >
-                <MessageSquareText className="h-4 w-4" />
-                <span className="text-xs font-medium">Ask Mina</span>
+                <Bot className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">AI Assistant</TooltipContent>
