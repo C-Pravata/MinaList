@@ -197,7 +197,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
 
   return (
     <TooltipProvider>
-      <div className="editor-toolbar bg-background/80 backdrop-blur-md border-b border-border py-1.5 px-4 flex items-center justify-between gap-2 sticky top-0 z-10">
+      <div className="editor-toolbar bg-background/80 backdrop-blur-md border-b border-border py-1 px-4 flex items-center justify-between gap-2 sticky top-0 z-10">
         {/* Only essential formatting options */}
         <div className="flex items-center space-x-1.5 overflow-x-auto no-scrollbar">
           <Tooltip>
@@ -356,14 +356,14 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-10 w-10 rounded-full text-primary hover:bg-primary/10 flex items-center justify-center p-2"
+                className="h-11 w-11 rounded-full text-primary hover:bg-primary/10 flex items-center justify-center p-2"
                 onClick={onAiAssistantToggle}
                 aria-label="AI Assistant"
               >
                 <img 
                   src="/MinaIcon.svg" 
                   alt="Mina" 
-                  className="h-8 w-8 object-contain aspect-square" 
+                  className="h-9 w-9 object-contain aspect-square" 
                 />
               </Button>
             </TooltipTrigger>
