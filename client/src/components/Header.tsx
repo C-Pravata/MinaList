@@ -25,7 +25,7 @@ export default function Header({ isEditing, onDone, onBack }: HeaderProps) {
           </Button>
         ) : (
           <div className="flex items-center gap-2">
-            <img src="/MinaIcon.svg" alt="Mina" className="h-[18px] w-[18px]" />
+            <img src="/MinaIcon.svg" alt="Mina" className="h-8 w-8" />
             <h1 className="text-lg font-semibold text-primary tracking-tight">Mina</h1>
           </div>
         )}

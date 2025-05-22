@@ -131,7 +131,7 @@ export default function DashboardAIAssistant({ open, onClose, onNavigateToNote }
       <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <img src="/MinaIcon.svg" alt="Mina" className="h-5 w-5" />
+            <img src="/MinaIcon.svg" alt="Mina" className="h-8 w-8" />
             <span>Mina AI Assistant</span>
           </DialogTitle>
           <DialogDescription>

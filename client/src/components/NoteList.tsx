@@ -97,11 +97,11 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-full text-primary/80 hover:text-primary hover:bg-primary/10"
+            className="rounded-full text-primary/80 hover:text-primary hover:bg-primary/10 h-10 w-10"
             onClick={() => setAiAssistantOpen(true)}
             title="Ask Mina AI about your notes"
           >
-            <img src="/MinaIcon.svg" alt="Mina" className="h-5 w-5" />
+            <img src="/MinaIcon.svg" alt="Mina" className="h-8 w-8" />
           </Button>
         </div>
       </div>
