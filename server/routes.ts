@@ -195,7 +195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Save attachment for a note
   app.post('/api/notes/:noteId/attachments', upload.single('file'), async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
-    const noteId = parseInt(req.params.noteId);
+      const noteId = parseInt(req.params.noteId);
     console.log(`[POST /api/notes/:noteId/attachments] Device ID: ${deviceId}, Note ID: ${noteId}`);
     
     if (!req.file) {
@@ -238,7 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all attachments for a note
   app.get('/api/notes/:noteId/attachments', async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
-    const noteId = parseInt(req.params.noteId);
+      const noteId = parseInt(req.params.noteId);
     console.log(`[GET /api/notes/:noteId/attachments] Device ID: ${deviceId}, Note ID: ${noteId}`);
     try {
       if (isNaN(noteId)) return res.status(400).json({ message: 'Invalid note ID' });
@@ -279,7 +279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`Successfully deleted attachment file: ${attachmentToDelete.file_path}`);
           }
         });
-        res.status(204).send();
+      res.status(204).send();
       } else {
         res.status(404).json({ message: 'Attachment not found or not authorized, or DB deletion failed' });
       }
@@ -344,11 +344,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update an AI chat
   app.put('/api/ai-chats/:id', async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
-    const id = parseInt(req.params.id);
+      const id = parseInt(req.params.id);
     console.log(`[PUT /api/ai-chats/:id] Device ID: ${deviceId}, Chat ID: ${id}`);
     try {
       if (isNaN(id)) return res.status(400).json({ message: 'Invalid chat ID' });
-      
+
       const result = updateAiChatSchema.safeParse(req.body);
       if (!result.success) {
         return res.status(400).json({ message: fromZodError(result.error).message });
@@ -390,7 +390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const deviceId = (req as any).deviceId as string;
     const noteId = parseInt(req.params.noteId);
     const { prompt, history } = req.body as { prompt: string; history?: ClientAiMessage[] };
-
+      
     console.log(`[POST /api/notes/:noteId/ai/generate] Device ID: ${deviceId}, Note ID: ${noteId}, Prompt: "${prompt}", History items: ${history?.length}`);
     try {
       if (isNaN(noteId)) {
@@ -403,7 +403,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!prompt) {
         return res.status(400).json({ message: 'Prompt is required' });
       }
-
+      
       // Function to convert HTML to plain text (server-side compatible)
       const htmlToPlainText = (html: string): string => {
         // Simple replacements for common HTML tags

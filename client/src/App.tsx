@@ -13,8 +13,8 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-        <NotesProvider>
-          <TooltipProvider>
+          <NotesProvider>
+            <TooltipProvider>
             <Layout>
               <Switch>
                 <Route path="/" component={NotesPage} />
@@ -24,9 +24,9 @@ export default function App() {
                 </Route>
               </Switch>
             </Layout>
-            <Toaster />
-          </TooltipProvider>
-        </NotesProvider>
+              <Toaster />
+            </TooltipProvider>
+          </NotesProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

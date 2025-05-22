@@ -1,4 +1,4 @@
-import { Search, X, Check, Bot, ArrowLeft } from "lucide-react";
+import { Search, X, Check, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/theme-provider";
 // import UserProfile from "@/components/UserProfile"; // Removed
@@ -25,7 +25,7 @@ export default function Header({ isEditing, onDone, onBack }: HeaderProps) {
           </Button>
         ) : (
           <div className="flex items-center gap-2">
-            <Bot className="h-[18px] w-[18px] text-primary" />
+            <img src="/MinaIcon.svg" alt="Mina" className="h-[18px] w-[18px]" />
             <h1 className="text-lg font-semibold text-primary tracking-tight">Mina</h1>
           </div>
         )}

@@ -137,7 +137,7 @@ export default function SwipeableNote({ note, isActive, onSelect, onDelete, sear
   };
   
   const { titleHtml, previewHtml, isContentMatch } = getEnhancedPreview(note, searchQuery);
-
+  
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     setIsDragging(true);
     setStartX(e.touches[0].clientX);

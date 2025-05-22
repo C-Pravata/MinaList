@@ -2,7 +2,7 @@ import { useState } from "react";
 import { formatDistanceToNow } from "@/lib/formatDate";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, PlusCircle, Bot } from "lucide-react";
+import { Search, PlusCircle } from "lucide-react";
 import { Note } from "@shared/schema";
 import SwipeableNote from "@/components/SwipeableNote";
 import { useToast } from "@/hooks/use-toast";
@@ -101,7 +101,7 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
             onClick={() => setAiAssistantOpen(true)}
             title="Ask Mina AI about your notes"
           >
-            <Bot className="h-5 w-5" />
+            <img src="/MinaIcon.svg" alt="Mina" className="h-5 w-5" />
           </Button>
         </div>
       </div>

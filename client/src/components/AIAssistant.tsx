@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, SendHorizontal, Bot, XCircle } from "lucide-react";
+import { Loader2, SendHorizontal, XCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useNotes } from "@/hooks/useNotes";
 
@@ -99,7 +99,7 @@ export default function AIAssistant({ open, onClose, onInsertText }: AIAssistant
       <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-primary" />
+            <img src="/MinaIcon.svg" alt="Mina" className="h-5 w-5" />
             <span>Mina AI Assistant</span>
           </DialogTitle>
           <DialogDescription>

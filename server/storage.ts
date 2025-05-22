@@ -61,7 +61,7 @@ export class DatabaseStorage implements IStorage {
         is_pinned: insertNote.is_pinned,
         tags: insertNote.tags as string[] | undefined, // Ensure correct type or undefined
         color: insertNote.color,
-        is_deleted: false 
+        is_deleted: false
       })
       .returning();
     return note;
