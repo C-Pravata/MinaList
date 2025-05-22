@@ -70,7 +70,7 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
 
   return (
     <div className="notes-list h-full">
-      <div className="p-3 border-b border-[hsl(var(--notelist-border))]">
+      <div className="py-2 px-3 border-b border-[hsl(var(--notelist-border))]">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
             <Search 
@@ -97,11 +97,11 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-full text-primary/80 hover:text-primary hover:bg-primary/10 h-10 w-10"
+            className="rounded-full text-primary/80 hover:text-primary hover:bg-primary/10 h-9 w-9"
             onClick={() => setAiAssistantOpen(true)}
             title="Ask Mina AI about your notes"
           >
-            <img src="/MinaIcon.svg" alt="Mina" className="h-8 w-8" />
+            <img src="/MinaIcon.svg" alt="Mina" className="h-7 w-7" />
           </Button>
         </div>
       </div>
