@@ -233,7 +233,7 @@ export default function DashboardAIAssistant({ open, onClose, onNavigateToNote }
           </Button>
           
           <Textarea
-            placeholder="Ask about your notes (e.g., 'Find my note about chicken soup')"
+            placeholder="Ask about your notes (e.g., 'Find my note(s) about ...')"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
