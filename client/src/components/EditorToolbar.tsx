@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { getDeviceId } from "@/lib/deviceId";
 
 interface EditorToolbarProps {
   onDelete: () => void;
@@ -118,21 +119,57 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
           formData.append('image', file);
           
           try {
+            const deviceId = getDeviceId();
+
             const response = await fetch('/api/upload', {
               method: 'POST',
+              headers: {
+                'x-device-id': deviceId,
+                // 'Content-Type' is not needed here; browser sets it for FormData with boundary
+              },
               body: formData,
             });
             
             if (!response.ok) {
-              throw new Error('Upload failed');
+              let errorDetails = `Upload failed with status: ${response.status}`;
+              try {
+                const errorData = await response.json(); // Try to parse as JSON
+                errorDetails += ` - ${errorData.message || JSON.stringify(errorData)}`;
+              } catch (e) {
+                // If not JSON, try to get as text
+                try {
+                  const errorText = await response.text();
+                  errorDetails += ` - ${errorText}`;
+                } catch (e2) {
+                  // If text also fails, just use the status
+                }
+              }
+              console.error(errorDetails);
+              alert(`Image upload failed: ${response.statusText || 'Server error'}. Check console for details.`); // Basic user feedback
+              throw new Error(errorDetails);
             }
             
             const data = await response.json();
-            if (range) {
-              quill.insertEmbed(range.index, 'image', data.url);
+            if (data && data.url) { // Check if data.url exists
+              if (range) {
+                quill.insertEmbed(range.index, 'image', data.url);
+              } else {
+                // If no range (editor not focused?), append to the end or handle appropriately
+                const currentLength = quill.getLength();
+                quill.insertEmbed(currentLength, 'image', data.url);
+                console.warn("Quill editor was not focused. Image inserted at the end.");
+              }
+            } else {
+              console.error("Image upload response did not contain a valid URL:", data);
+              alert("Image uploaded, but server did not return a valid image URL. Check console.");
+              throw new Error("Invalid image URL from server");
             }
           } catch (error) {
             console.error('Image upload error:', error);
+            // alert('Failed to upload image. See console for details.'); // Already alerted for response.ok or data.url issues
+            if (!(error instanceof Error && error.message.startsWith('Upload failed')) && !(error instanceof Error && error.message.startsWith('Invalid image URL'))) {
+                alert('An unexpected error occurred during image upload. Please try again.');
+            }
           }
         }
       }

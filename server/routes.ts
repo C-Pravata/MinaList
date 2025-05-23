@@ -606,6 +606,27 @@ ${notesContext}`
     }
   });
 
+  // Global error handler (should be last middleware before starting the server)
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    console.error("Global error handler caught:", err);
+    if (err instanceof multer.MulterError) {
+      // A Multer error occurred when uploading.
+      return res.status(400).json({ message: `Multer error: ${err.message}` });
+    } else if (err) {
+      // An unknown error occurred.
+      if (err.message && err.message.startsWith('Invalid file type')) {
+        return res.status(400).json({ message: err.message });
+      }
+      // For other errors, send a generic message
+      return res.status(500).json({ message: err.message || "Internal server error" });
+    }
+    // If no error but this middleware is reached, it means something went wrong with routing
+    // or this was called via next() without an error. Ensure prior routes handle responses or call next properly.
+    if (!res.headersSent) {
+      res.status(404).json({ message: "Resource not found or error in routing." });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
