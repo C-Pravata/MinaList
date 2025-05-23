@@ -41,6 +41,14 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
       )
     : notes;
 
+  // Sort notes: pinned first (by updated_at desc), then unpinned (by updated_at desc)
+  const sortedNotes = [...filteredNotes].sort((a, b) => {
+    if (a.is_pinned && !b.is_pinned) return -1;
+    if (!a.is_pinned && b.is_pinned) return 1;
+    // Both pinned or both unpinned: sort by updated_at desc
+    return (Number(b.updated_at) || 0) - (Number(a.updated_at) || 0);
+  });
+
   const getPreviewText = (content: string) => {
     // Remove HTML tags for the preview
     const textOnly = content.replace(/<\/?[^>]+(>|$)/g, "");
@@ -126,7 +134,7 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
           </div>
         ) : (
           <div className="divide-y divide-[hsl(var(--notelist-border))]">
-            {filteredNotes.map((note) => (
+            {sortedNotes.map((note) => (
               <SwipeableNote
                 key={note.id}
                 note={note}

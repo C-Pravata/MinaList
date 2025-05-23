@@ -16,6 +16,7 @@ interface NotesContextType {
   deleteNote: (id: number) => Promise<void>;
   deleteActiveNote: () => Promise<void>;
   isLoading: boolean;
+  togglePin: (id: number, pin: boolean) => Promise<void>;
 }
 
 const NotesContext = createContext<NotesContextType | undefined>(undefined);
@@ -161,6 +162,19 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Toggle pin status
+  const togglePin = async (id: number, pin: boolean) => {
+    const note = notes.find(n => n.id === id);
+    if (!note) return;
+    await updateNote(id, {
+      title: note.title,
+      content: note.content,
+      is_pinned: pin,
+      tags: note.tags,
+      color: note.color,
+    } as UpdateNote);
+  };
+
   return (
     <NotesContext.Provider
       value={{
@@ -172,6 +186,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         deleteNote,
         deleteActiveNote,
         isLoading,
+        togglePin,
       }}
     >
       {children}

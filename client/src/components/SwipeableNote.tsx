@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Pin } from 'lucide-react';
 import { Note } from '@shared/schema';
 import { formatDistanceToNow } from '@/lib/formatDate';
 import { Button } from '@/components/ui/button';
+import { useNotes } from '@/hooks/useNotes';
 
 interface SwipeableNoteProps {
   note: Note;
@@ -29,6 +30,7 @@ export default function SwipeableNote({ note, isActive, onSelect, onDelete, sear
   const [startX, setStartX] = useState(0);
   const [showDeleteButton, setShowDeleteButton] = useState(false);
   const noteRef = useRef<HTMLDivElement>(null);
+  const { togglePin } = useNotes();
   
   const THRESHOLD = -80;
   
@@ -216,9 +218,19 @@ export default function SwipeableNote({ note, isActive, onSelect, onDelete, sear
   return (
     <div className="relative overflow-hidden group"> {/* Added group for potential future styling */}
       <div 
-        className="absolute inset-y-0 right-0 flex items-center justify-center bg-red-500 text-white p-4 w-20 transition-opacity duration-300"
-        style={{ opacity: showDeleteButton ? 1 : 0, zIndex: 1 }} // Ensure delete button is interactable
+        className="absolute inset-y-0 right-0 flex items-center justify-end gap-2 pr-2 bg-transparent w-32 transition-opacity duration-300"
+        style={{ opacity: showDeleteButton ? 1 : 0, zIndex: 1 }}
       >
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`h-10 w-10 rounded-full text-primary bg-primary/10 hover:bg-primary/20 mr-1 ${note.is_pinned ? 'opacity-100' : 'opacity-80'}`}
+          style={{ color: '#a855f7' }}
+          onClick={(e) => { e.stopPropagation(); togglePin(note.id, !note.is_pinned); }}
+          aria-label={note.is_pinned ? "Unpin note" : "Pin note"}
+        >
+          <Pin className="h-5 w-5" fill={note.is_pinned ? '#a855f7' : 'none'} />
+        </Button>
         <Button
           variant="ghost"
           size="icon"
@@ -251,6 +263,9 @@ export default function SwipeableNote({ note, isActive, onSelect, onDelete, sear
           <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
         )}
         <h3 className="text-md font-semibold truncate text-foreground pr-8" dangerouslySetInnerHTML={{ __html: titleHtml }} />
+        {note.is_pinned && (
+          <Pin className="absolute top-3 right-6 h-5 w-5" style={{ color: '#a855f7' }} />
+        )}
         {isContentMatch && previewHtml ? (
           <p className="text-sm text-muted-foreground mt-1 search-snippet" dangerouslySetInnerHTML={{ __html: previewHtml }} />
         ) : (
