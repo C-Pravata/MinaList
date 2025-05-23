@@ -41,12 +41,35 @@ export default function SwipeableNote({ note, isActive, onSelect, onDelete, sear
   const getPlainTextLines = (htmlContent: string): string[] => {
     if (!htmlContent) return [];
     const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = htmlContent;
-    const html = tempDiv.innerHTML;
-    const processedHtml = html.replace(/<\/(p|div)>/g, '\n').replace(/<br\s*\/?>/g, '\n');
+    
+    // Pre-process HTML: ensure block elements are followed by a newline character
+    // before stripping tags. This helps in preserving line breaks.
+    let processedHtml = htmlContent;
+    const blockElements = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote', 'hr', 'ul', 'ol', 'table', 'tr', 'td', 'th', 'dl', 'dt', 'dd', 'figure', 'figcaption', 'address', 'article', 'aside', 'fieldset', 'footer', 'form', 'header', 'main', 'nav', 'section', 'pre'];
+    
+    blockElements.forEach(tag => {
+      // Add newline after closing tags
+      processedHtml = processedHtml.replace(new RegExp(`</${tag}>`, 'gi'), `</${tag}>\n`);
+      // For self-closing or tags that imply a break before (like <br>), ensure newline.
+      // More complex: For opening tags, if we want a break *before* them,
+      // it's often better to ensure the *previous* block element had its newline.
+      // Or, one could add \n before <tag>, but this might double newlines.
+      // Simpler for now: focus on newlines *after* blocks.
+    });
+    // Ensure <br> tags also contribute a newline
+    processedHtml = processedHtml.replace(/<br\s*\/?>/gi, '\n');
+
     tempDiv.innerHTML = processedHtml;
+    
+    // Get text content, which now should have newlines where block elements ended
     const plainText = tempDiv.textContent || tempDiv.innerText || "";
-    return plainText.split('\n').map(line => line.trim()).filter(line => line !== "");
+    
+    // Split by newline, trim, and filter empty lines
+    // Also, normalize multiple newlines (e.g., from <p></p>\n) into single effective breaks
+    return plainText
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line !== "");
   };
 
   const getContentLinePreview = (fullHtmlContent: string, noteTitle: string): string => {
