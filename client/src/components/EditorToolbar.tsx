@@ -198,15 +198,16 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
   return (
     <TooltipProvider>
       <div className="editor-toolbar bg-background/80 backdrop-blur-md border-b border-border py-1 px-4 flex items-center justify-between gap-2 sticky top-0 z-10">
-        {/* Only essential formatting options */}
-        <div className="flex items-center space-x-1.5 overflow-x-auto no-scrollbar">
+        {/* Combined group for all formatting, insert, and action icons */}
+        <div className="flex items-center flex-nowrap gap-x-1 overflow-x-auto no-scrollbar flex-grow"> 
+          {/* Basic Formatting */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={() => handleHeader()}
-                className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
+                className="h-9 w-9 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
               >
                 <Heading1 className="h-4 w-4" />
               </Button>
@@ -220,7 +221,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
                 variant="ghost" 
                 size="sm" 
                 onClick={() => handleFormat('bold')}
-                className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
+                className="h-9 w-9 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
               >
                 <Bold className="h-4 w-4" />
               </Button>
@@ -234,7 +235,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
                 variant="ghost" 
                 size="sm" 
                 onClick={() => handleFormat('italic')}
-                className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
+                className="h-9 w-9 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
               >
                 <Italic className="h-4 w-4" />
               </Button>
@@ -248,17 +249,15 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
                 variant="ghost" 
                 size="sm" 
                 onClick={() => handleListFormat('bullet')}
-                className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
+                className="h-9 w-9 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
               >
                 <List className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">Bullet List</TooltipContent>
           </Tooltip>
-        </div>
-        
-        {/* Insert options group */}
-        <div className="flex items-center space-x-1.5">
+
+          {/* Insert options group */}
           <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -266,7 +265,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
+                    className="h-9 w-9 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
                     onClick={() => setIsLinkDialogOpen(true)}
                   >
                     <LinkIcon className="h-4 w-4" />
@@ -311,7 +310,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
+                className="h-9 w-9 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
                 onClick={handleImageInsert}
               >
                 <Image className="h-4 w-4" />
@@ -319,16 +318,14 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">Add Image</TooltipContent>
           </Tooltip>
-        </div>
         
-        {/* AI, Voice & Share section */}
-        <div className="flex items-center space-x-1.5">
+          {/* AI, Voice & Share section */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
+                className="h-9 w-9 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
                 onClick={startSpeechRecognition}
               >
                 <Mic className="h-4 w-4" />
@@ -342,7 +339,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-8 w-8 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
+                className="h-9 w-9 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
                 onClick={handleShareNote}
               >
                 <Share className="h-4 w-4" />
@@ -350,20 +347,23 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">Share Note</TooltipContent>
           </Tooltip>
-          
+        </div> {/* End of the scrollable icon group */}
+        
+        {/* AI Assistant button - kept separate to be on the far right and potentially not scroll */}
+        <div className="flex-shrink-0"> {/* Prevents this div from shrinking */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
-                size="sm" 
-                className="h-11 w-11 rounded-full text-primary hover:bg-primary/10 flex items-center justify-center p-2"
+                size="sm" // size="sm" might be overridden by h-X w-X
+                className="h-10 w-10 rounded-full text-primary hover:bg-primary/10 flex items-center justify-center p-1.5" // Kept AI button slightly larger
                 onClick={onAiAssistantToggle}
                 aria-label="AI Assistant"
               >
                 <img 
                   src="/MinaIcon.svg" 
                   alt="Mina" 
-                  className="h-9 w-9 object-contain aspect-square" 
+                  className="h-full w-full object-contain aspect-square" 
                 />
               </Button>
             </TooltipTrigger>
