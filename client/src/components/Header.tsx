@@ -11,7 +11,7 @@ interface HeaderProps {
 
 export default function Header({ isEditing, onDone, onBack }: HeaderProps) {
   return (
-    <header className="border-b border-border/50 py-1.5 px-2 flex justify-between items-center bg-background/85 backdrop-blur-lg sticky top-0 z-20 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+    <header className="border-b border-border/50 py-1.5 pl-1 pr-2 flex justify-between items-center bg-background/85 backdrop-blur-lg sticky top-0 z-20 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
       <div className="flex items-center gap-0.5 md:gap-2">
         {isEditing ? (
           <Button 
