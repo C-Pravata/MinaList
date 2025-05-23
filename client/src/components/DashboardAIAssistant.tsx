@@ -166,7 +166,7 @@ export default function DashboardAIAssistant({ open, onClose, onNavigateToNote }
                   </>
                 )}
               </div>
-              <div className="text-sm whitespace-pre-wrap prose dark:prose-invert max-w-none">
+              <div className="text-base whitespace-pre-wrap prose dark:prose-invert max-w-none">
                 {message.role === 'assistant' ? (
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {message.content}
@@ -193,8 +193,8 @@ export default function DashboardAIAssistant({ open, onClose, onNavigateToNote }
                     className="text-sm p-2 rounded-md bg-background/50 cursor-pointer hover:bg-primary/5 transition-colors border border-border"
                   >
                     <div className="font-medium">{note.title || "Untitled"}</div>
-                    <div className="text-xs opacity-70 mt-1">{note.excerpt}</div>
-                    <div className="text-xs text-muted-foreground mt-1">
+                    <div className="text-sm opacity-70 mt-1">{note.excerpt}</div>
+                    <div className="text-sm text-muted-foreground mt-1">
                       {formatDate(note.createdAt)}
                     </div>
                   </div>
@@ -213,7 +213,7 @@ export default function DashboardAIAssistant({ open, onClose, onNavigateToNote }
               </div>
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <span className="text-sm">Thinking...</span>
+                <span className="text-base">Thinking...</span>
               </div>
             </div>
           )}

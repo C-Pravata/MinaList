@@ -174,6 +174,9 @@ export default function NoteEditor() {
     'link', 'image', 'blockquote', 'code-block'
   ];
 
+  // Define placeholder text
+  const placeholderText = "Start writing...";
+
   if (isLoading) {
     return (
       <div className="flex-1 overflow-y-auto p-6">
