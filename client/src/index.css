@@ -173,12 +173,18 @@
     max-height: 70vh;
   }
 
-  .ql-editor ul {
-    @apply list-disc pl-5 mb-4 space-y-1.5;
+  .note-editor .editor-container .ql-editor ul {
+    @apply list-disc space-y-1.5;
+    padding-left: 0.75rem !important; /* Was pl-5 (1.25rem), now pl-3 (0.75rem) */
+    margin-top: 0 !important;
+    margin-bottom: 0.25em !important;
   }
 
-  .ql-editor ol {
-    @apply list-decimal pl-5 mb-4 space-y-1.5;
+  .note-editor .editor-container .ql-editor ol {
+    @apply list-decimal space-y-1.5;
+    padding-left: 0.75rem !important; /* Was pl-5 (1.25rem), now pl-3 (0.75rem) */
+    margin-top: 0 !important;
+    margin-bottom: 0.25em !important;
   }
   
   .ql-editor:focus,
