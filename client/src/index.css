@@ -48,6 +48,8 @@
   --chart-3: 270 50% 55%;
   --chart-4: 270 30% 50%;
   --chart-5: 270 10% 45%;
+  --swipe-pin-bg: hsl(var(--primary)); /* match theme primary */
+  --swipe-delete-bg: #e0d7fa; /* lavender/gray */
 }
 
 .dark {
@@ -89,6 +91,8 @@
   --sidebar-accent-foreground: 0 0% 98%;
   --sidebar-border: 240 3.7% 15.9%;
   --sidebar-ring: 270 91% 65%;
+  --swipe-pin-bg: hsl(var(--primary)); /* match theme primary */
+  --swipe-delete-bg: #6d6a7c; /* purple-gray */
 }
 
 @layer base {
@@ -362,8 +366,15 @@
 }
 
 .swipe-delete-button {
-  @apply bg-red-500 dark:bg-red-600;
-  @apply transition-opacity duration-200;
+  /* Old: @apply bg-red-500 dark:bg-red-600; */
+  /* No longer needed, replaced by inline style using var(--swipe-delete-bg) */
+}
+
+.swipe-action-button-pin {
+  background: var(--swipe-pin-bg);
+}
+.swipe-action-button-delete {
+  background: var(--swipe-delete-bg);
 }
 
 /* Smooth transitions for editor */

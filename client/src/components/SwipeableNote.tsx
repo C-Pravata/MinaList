@@ -32,7 +32,10 @@ export default function SwipeableNote({ note, isActive, onSelect, onDelete, sear
   const noteRef = useRef<HTMLDivElement>(null);
   const { togglePin } = useNotes();
   
-  const THRESHOLD = -80;
+  const BUTTON_SIZE = 44; // px, for both pin and delete
+  const BUTTON_GAP = 8; // px, gap between buttons
+  const MAX_SWIPE = -(BUTTON_SIZE * 2 + BUTTON_GAP); // -96px
+  const THRESHOLD = MAX_SWIPE; // Snap to this value
   
   useEffect(() => {
     setTranslateX(0);
@@ -177,18 +180,18 @@ export default function SwipeableNote({ note, isActive, onSelect, onDelete, sear
     if (!isDragging) return;
     const currentX = e.touches[0].clientX;
     const diff = currentX - startX;
-    const newTranslateX = Math.min(0, diff);
+    const newTranslateX = Math.max(MAX_SWIPE, Math.min(0, diff)); // Limit swipe
     setTranslateX(newTranslateX);
-    setShowDeleteButton(newTranslateX <= THRESHOLD);
+    setShowDeleteButton(newTranslateX <= THRESHOLD + 10); // Show when close to max
   };
   
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isDragging) return;
     const currentX = e.clientX;
     const diff = currentX - startX;
-    const newTranslateX = Math.min(0, diff);
+    const newTranslateX = Math.max(MAX_SWIPE, Math.min(0, diff)); // Limit swipe
     setTranslateX(newTranslateX);
-    setShowDeleteButton(newTranslateX <= THRESHOLD);
+    setShowDeleteButton(newTranslateX <= THRESHOLD + 10);
   };
   
   const handleEndDrag = () => {
@@ -216,39 +219,42 @@ export default function SwipeableNote({ note, isActive, onSelect, onDelete, sear
   };
   
   return (
-    <div className="relative overflow-hidden group"> {/* Added group for potential future styling */}
-      <div 
-        className="absolute inset-y-0 right-0 flex items-center justify-end gap-2 pr-2 bg-transparent w-32 transition-opacity duration-300"
-        style={{ opacity: showDeleteButton ? 1 : 0, zIndex: 1 }}
-      >
-        <Button
-          variant="ghost"
-          size="icon"
-          className={`h-10 w-10 rounded-full text-primary bg-primary/10 hover:bg-primary/20 mr-1 ${note.is_pinned ? 'opacity-100' : 'opacity-80'}`}
-          style={{ color: '#a855f7' }}
-          onClick={(e) => { e.stopPropagation(); togglePin(note.id, !note.is_pinned); }}
-          aria-label={note.is_pinned ? "Unpin note" : "Pin note"}
-        >
-          <Pin className="h-5 w-5" fill={note.is_pinned ? '#a855f7' : 'none'} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-10 w-10 rounded-full text-white hover:bg-red-600/30"
-          onClick={handleDelete}
-          aria-label="Delete note"
-        >
-          <Trash2 className="h-5 w-5" />
-        </Button>
+    <div className="relative overflow-hidden group">
+      {/* Two-tone background for swipe actions */}
+      <div className="absolute inset-y-0 right-0 flex" style={{ width: `${-MAX_SWIPE}px`, zIndex: 0 }}>
+        <div className="flex items-center justify-center" style={{ width: BUTTON_SIZE, background: 'var(--swipe-pin-bg)' }}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-10 w-10 rounded-full text-primary bg-primary/10 hover:bg-primary/20 transition-all duration-200 ${note.is_pinned ? 'opacity-100' : 'opacity-80'} ${showDeleteButton ? 'opacity-100' : 'opacity-70'}`}
+            style={{ color: '#fff' }}
+            onClick={(e) => { e.stopPropagation(); togglePin(note.id, !note.is_pinned); }}
+            aria-label={note.is_pinned ? "Unpin note" : "Pin note"}
+          >
+            <Pin className="h-5 w-5" fill={note.is_pinned ? '#fff' : 'none'} />
+          </Button>
+        </div>
+        <div style={{ width: BUTTON_GAP, background: 'transparent' }} />
+        <div className="flex items-center justify-center" style={{ width: BUTTON_SIZE, background: 'var(--swipe-delete-bg)' }}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-10 w-10 rounded-full text-white transition-all duration-200 ${showDeleteButton ? 'opacity-100' : 'opacity-70'}`}
+            onClick={handleDelete}
+            aria-label="Delete note"
+          >
+            <Trash2 className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
       
       <div
         ref={noteRef}
-        className={`note-item p-4 cursor-pointer relative ${isActive ? "active" : ""} bg-background`} // Ensure bg for swipe
-        style={{ 
+        className={`note-item p-4 cursor-pointer relative ${isActive ? "active" : ""} bg-background`}
+        style={{
           transform: `translateX(${translateX}px)`,
-          transition: isDragging ? 'none' : 'transform 0.3s ease-out',
-          zIndex: 2 // Note content should be above delete button initially
+          transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(.4,2,.6,1)',
+          zIndex: 2
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -256,7 +262,7 @@ export default function SwipeableNote({ note, isActive, onSelect, onDelete, sear
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleEndDrag}
-        onMouseLeave={() => { if(isDragging) handleEndDrag();}} // Handle mouse leaving while dragging
+        onMouseLeave={() => { if(isDragging) handleEndDrag();}}
         onClick={handleClick}
       >
         {isActive && (
