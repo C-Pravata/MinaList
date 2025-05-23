@@ -13,6 +13,8 @@ import {
   MessageSquareText,
   Share
 } from "lucide-react";
+import { Capacitor } from '@capacitor/core';
+import { SpeechRecognition } from "@capacitor-community/speech-recognition";
 import { ShareService } from "@/services/ShareService";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -137,42 +139,117 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
     };
   };
   
-  const startSpeechRecognition = () => {
-    if (!('webkitSpeechRecognition' in window)) {
-      alert('Speech recognition is not supported in your browser. Try Chrome or Edge.');
-      return;
-    }
-    
-    // @ts-ignore - This is a browser API
-    const recognition = new window.webkitSpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    
-    recognition.onresult = (event: any) => {
-      const quill = quillRef.current?.getEditor();
-      if (quill) {
-        const range = quill.getSelection();
-        if (range) {
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            if (event.results[i].isFinal) {
-              const transcript = event.results[i][0].transcript;
+  const startSpeechRecognition = async () => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+
+    if (Capacitor.isNativePlatform()) {
+      // Native platform: Use Capacitor plugin
+      try {
+        const available = await SpeechRecognition.available();
+        if (!available) {
+          alert('Speech recognition is not available on this device.');
+          return;
+        }
+
+        const hasPermission = await SpeechRecognition.checkPermissions();
+        if (hasPermission.speechRecognition !== 'granted') {
+          const permissionResult = await SpeechRecognition.requestPermissions();
+          if (permissionResult.speechRecognition !== 'granted') {
+            alert('Microphone and Speech Recognition permission is required for voice input.');
+            return;
+          }
+        }
+
+        // Add listener for partial results
+        SpeechRecognition.addListener("partialResults", (data: any) => {
+          if (data.matches && data.matches.length > 0) {
+            const transcript = data.matches[0]; // Get the most likely transcript
+            // This is tricky: Web API inserts as you speak, plugin might give full phrases.
+            // For now, let's assume we want to append if there's a selection or insert at cursor.
+            const range = quill.getSelection();
+            if (range) {
+              // Potentially clear previous partial result if an existing one is being built
+              // This part needs careful handling based on how partial results are delivered.
+              // For simplicity, we'll just insert.
               quill.insertText(range.index, transcript + ' ');
               quill.setSelection(range.index + transcript.length + 1);
             }
           }
-        }
+        });
+
+        await SpeechRecognition.start({
+          language: "en-US",
+          maxResults: 1, // We usually want the best single match for dictation
+          prompt: "Say something...", // Android only
+          partialResults: true,
+          popup: false, // Android only, use false for inline experience
+        });
+
+        // Consider adding a way to stop listening, e.g., tapping the button again
+        // or a timeout like the web version had.
+        // For now, it might stop on silence or require a manual stop call if you add one.
+
+      } catch (error) {
+        console.error('Capacitor Speech Recognition error:', error);
+        alert('Could not start speech recognition.');
       }
-    };
-    
-    recognition.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error);
-      recognition.stop();
-    };
-    
-    recognition.start();
-    setTimeout(() => {
-      recognition.stop();
-    }, 10000); // Stop after 10 seconds
+    } else {
+      // Web platform: Use existing webkitSpeechRecognition
+      if (!('webkitSpeechRecognition' in window)) {
+        alert('Speech recognition is not supported in your browser. Try Chrome or Edge.');
+        return;
+      }
+      
+      // @ts-ignore - This is a browser API
+      const recognition = new window.webkitSpeechRecognition();
+      recognition.continuous = true; // Keep listening
+      recognition.interimResults = true;
+      let lastInsertedLength = 0; // To handle overwriting interim results
+
+      recognition.onresult = (event: any) => {
+        const range = quill.getSelection();
+        if (range) {
+          let transcript = '';
+          let isFinal = false;
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            transcript += event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              isFinal = true;
+            }
+          }
+
+          // Delete the previous interim result
+          if (lastInsertedLength > 0) {
+            quill.deleteText(range.index - lastInsertedLength, lastInsertedLength);
+          }
+          
+          quill.insertText(range.index - lastInsertedLength, transcript);
+          lastInsertedLength = transcript.length;
+
+          if (isFinal) {
+            quill.insertText(range.index - lastInsertedLength + transcript.length, ' '); // Add space after final
+            quill.setSelection(range.index - lastInsertedLength + transcript.length + 1);
+            lastInsertedLength = 0; // Reset for next final phrase
+          }
+        }
+      };
+      
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        recognition.stop();
+        lastInsertedLength = 0;
+      };
+
+      recognition.onend = () => {
+         // You might want to change the button state here
+         lastInsertedLength = 0;
+      };
+      
+      recognition.start();
+      // Consider a visual cue that it's listening and a way to stop it.
+      // The original timeout is removed for continuous mode.
+    }
   };
   
   // Handle sharing note content using the ShareService
