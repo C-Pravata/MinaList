@@ -105,9 +105,9 @@ export default function Home() {
       {!isEditing && (
         <Button
           onClick={handleCreateNote}
-          className="fixed bottom-6 right-6 bg-primary hover:bg-primary/90 dark:bg-primary shadow-lg rounded-full p-3 h-14 w-14 flex items-center justify-center z-10 hover:scale-105 transition-all duration-200"
+          className="fixed bottom-6 right-6 bg-primary hover:bg-primary/90 dark:bg-primary shadow-lg rounded-full p-4 h-16 w-16 flex items-center justify-center z-10 hover:scale-105 transition-all duration-200"
         >
-          <Plus className="h-6 w-6" />
+          <Plus className="h-8 w-8" />
         </Button>
       )}
     </div>
