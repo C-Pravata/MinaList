@@ -70,9 +70,9 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
 
   return (
     <div className="notes-list h-full">
-      <div className="py-2 px-3 border-b border-[hsl(var(--notelist-border))]">
+      <div className="py-1.5 px-2.5 border-b border-[hsl(var(--notelist-border))]">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <Search 
               className="h-5 w-5 text-primary/80 cursor-pointer" 
               onClick={toggleSearch}
@@ -82,7 +82,7 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
                 id="search-input"
                 type="text"
                 placeholder="Search notes"
-                className="bg-background/50 border-0 shadow-none w-60 md:w-80 focus:ring-1 focus:ring-primary/30"
+                className="bg-background/50 border-0 shadow-none w-52 md:w-72 focus:ring-1 focus:ring-primary/30 h-9 text-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
