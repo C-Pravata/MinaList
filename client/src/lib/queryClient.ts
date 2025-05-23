@@ -1,6 +1,13 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { getDeviceId } from './deviceId';
 
+// Determine the base URL for API requests
+// In development, we use relative paths so the Vite proxy can handle them.
+// In production, we use the VITE_API_BASE_URL environment variable.
+const API_BASE_URL = import.meta.env.PROD && import.meta.env.VITE_API_BASE_URL
+  ? import.meta.env.VITE_API_BASE_URL
+  : '';
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -10,7 +17,7 @@ async function throwIfResNotOk(res: Response) {
 
 export async function apiRequest(
   method: string,
-  path: string,
+  relativePath: string,
   body?: any,
   options?: { headers?: Record<string, string> },
 ): Promise<Response> {
@@ -20,7 +27,12 @@ export async function apiRequest(
     ...(options?.headers || {}),
   };
 
-  const res = await fetch(path, {
+  // Prepend the base URL only if it's set (i.e., in production)
+  // Ensure relativePath starts with a / if API_BASE_URL is present and relativePath doesn't have one.
+  // However, typically relativePath will be like '/api/notes', so simple concatenation is fine.
+  const fullPath = API_BASE_URL ? `${API_BASE_URL}${relativePath}` : relativePath;
+
+  const res = await fetch(fullPath, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
@@ -37,7 +49,11 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
+    // queryKey[0] is expected to be the relative path, e.g., '/api/notes'
+    const relativePath = queryKey[0] as string;
+    const fullPath = API_BASE_URL ? `${API_BASE_URL}${relativePath}` : relativePath;
+
+    const res = await fetch(fullPath, {
       credentials: "include",
     });
 
