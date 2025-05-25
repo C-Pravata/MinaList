@@ -475,7 +475,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
                 aria-label="AI Assistant"
               >
                 <img 
-                  src="/MinaIcon.svg" 
+                  src="/assets/MinaIcon.svg" 
                   alt="Mina" 
                   className="h-full w-full object-contain aspect-square" 
                 />

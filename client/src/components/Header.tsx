@@ -14,8 +14,8 @@ export default function Header({ isEditing, onDone, onBack }: HeaderProps) {
     <header 
       className="border-b border-border/50 pl-1 pr-2 flex justify-between items-center bg-background/85 backdrop-blur-lg sticky top-0 z-20 shadow-[0_1px_3px_rgba(0,0,0,0.05)]"
       style={{
-        paddingTop: 'calc(0.375rem + env(safe-area-inset-top))', // 0.375rem is py-1.5
-        paddingBottom: '0.375rem' // py-1.5
+        paddingTop: 'env(safe-area-inset-top)', // Removed fixed part, now only safe-area
+        paddingBottom: '0.375rem' // Kept original py-1.5 for bottom
       }}
     >
       <div className="flex items-center gap-0.5 md:gap-2">
