@@ -109,7 +109,7 @@ export default function NoteList({ notes, activeNoteId, onNoteSelect, isLoading 
             onClick={() => setAiAssistantOpen(true)}
             title="Ask Mina AI about your notes"
           >
-            <img src="/MinaIcon.svg" alt="Mina" className="h-7 w-7" />
+            <img src="/assets/MinaIcon.svg" alt="Mina" className="h-7 w-7" />
           </Button>
         </div>
       </div>

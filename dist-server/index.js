@@ -10,6 +10,7 @@ import express3 from "express";
 // server/routes.ts
 import express from "express";
 import { createServer } from "http";
+import cors from "cors";
 
 // shared/schema.ts
 var schema_exports = {};
@@ -322,6 +323,9 @@ import multer from "multer";
 import path2 from "path";
 import fs from "fs";
 var deviceIdMiddleware = (req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return next();
+  }
   const deviceId = req.headers["x-device-id"];
   if (!deviceId) {
     return res.status(400).json({ message: "Device ID (x-device-id header) is required" });
@@ -357,6 +361,29 @@ var upload = multer({
   }
 });
 async function registerRoutes(app2) {
+  const corsOptions = {
+    origin: [
+      "http://localhost:8100",
+      // Vite dev server
+      "http://localhost",
+      // Capacitor iOS simulator
+      "capacitor://localhost",
+      // Capacitor iOS default scheme
+      "capacitor://app.mina.io",
+      // Your app's configured hostname from capacitor.config.ts
+      "https://app.mina.io"
+      // Your app's configured hostname with https (if used)
+      // Add any other origins if necessary
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Device-ID"],
+    // Ensure X-Device-ID is allowed
+    credentials: true,
+    // If you use cookies/session based auth (might not be needed for deviceId)
+    optionsSuccessStatus: 204
+    // Standard for successful OPTIONS preflight
+  };
+  app2.use("/api", cors(corsOptions));
   app2.use("/uploads", express.static(path2.join(process.cwd(), "uploads")));
   app2.use("/api", deviceIdMiddleware);
   app2.get("/api/notes", async (req, res) => {
