@@ -1,17 +1,33 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { getDeviceId } from './deviceId';
+import { Capacitor } from '@capacitor/core';
 
 // Determine the base URL for API requests
-// In development, we use relative paths so the Vite proxy can handle them.
-// In production, we use the VITE_API_BASE_URL environment variable.
-const API_BASE_URL = import.meta.env.PROD && import.meta.env.VITE_API_BASE_URL
-  ? import.meta.env.VITE_API_BASE_URL
-  : '';
+let API_BASE_URL = '';
+if (Capacitor.isNativePlatform()) {
+  // Quick Test: For iOS simulator talking to a local backend on the same Mac
+  // Ensure your local backend server (e.g., Express) is running on http://localhost:5000
+  API_BASE_URL = 'http://localhost:5000';
+} else if (import.meta.env.PROD && import.meta.env.VITE_API_BASE_URL) {
+  // Production web build: use VITE_API_BASE_URL from environment variables
+  API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+} else {
+  // Development web build: use relative paths for Vite proxy (API_BASE_URL remains '')
+  // Or if VITE_API_BASE_URL is not set in production, this will also be the case (which might be an issue)
+}
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    let errorBody = res.statusText;
+    try {
+      // Attempt to get more detailed error message from response body
+      const text = await res.text();
+      errorBody = text || res.statusText; // Use text if available, otherwise fallback
+    } catch (e) {
+      // Ignore if reading text fails, stick with statusText
+    }
+    console.error(`API Error ${res.status}:`, errorBody); // Log the actual error body
+    throw new Error(`${res.status}: ${errorBody}`);
   }
 }
 

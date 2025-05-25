@@ -1,5 +1,6 @@
 import express, { type Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import cors from 'cors';
 import { storage } from "./storage";
 import { generateGeminiResponse, type GeminiMessage } from './geminiApi';
 import { 
@@ -19,11 +20,17 @@ import fs from "fs";
 
 // Middleware to extract and validate device ID
 const deviceIdMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  // Allow OPTIONS requests to pass without device ID check for CORS preflight
+  if (req.method === 'OPTIONS') {
+    return next(); // Skips the rest of the middleware for OPTIONS requests
+  }
+
   const deviceId = req.headers['x-device-id'] as string;
   if (!deviceId) {
+    // console.warn(`Blocked request to ${req.path} due to missing x-device-id header`); // Optional: more logging
     return res.status(400).json({ message: 'Device ID (x-device-id header) is required' });
   }
-  (req as any).deviceId = deviceId; // Attach deviceId to request object for easier access in route handlers
+  (req as any).deviceId = deviceId; // Attach deviceId to request object
   next();
 };
 
@@ -62,10 +69,30 @@ interface ClientAiMessage {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Serve uploaded files
+  // 1. CORS Middleware - Placed before any routes or other custom middleware for /api
+  const corsOptions = {
+    origin: [
+      'http://localhost:8100',        // Vite dev server
+      'http://localhost',             // Capacitor iOS simulator
+      'capacitor://localhost',        // Capacitor iOS default scheme
+      'capacitor://app.mina.io',      // Your app's configured hostname from capacitor.config.ts
+      'https://app.mina.io'           // Your app's configured hostname with https (if used)
+      // Add any other origins if necessary
+    ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-ID'], // Ensure X-Device-ID is allowed
+    credentials: true, // If you use cookies/session based auth (might not be needed for deviceId)
+    optionsSuccessStatus: 204 // Standard for successful OPTIONS preflight
+  };
+  // Apply CORS specifically to /api routes, or globally if preferred
+  app.use('/api', cors(corsOptions));
+  // Alternatively, for global CORS: app.use(cors(corsOptions)); before all routes.
+
+  // Serve uploaded files (can be before or after CORS for /api, depends on if uploads need CORS)
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   // Apply deviceIdMiddleware to all /api routes that need it
+  // This now comes AFTER the CORS middleware for /api paths
   app.use("/api", deviceIdMiddleware);
 
   // Get all notes

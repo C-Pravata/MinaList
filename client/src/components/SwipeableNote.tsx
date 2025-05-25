@@ -236,22 +236,22 @@ export default function SwipeableNote({ note, isActive, onSelect, onDelete, sear
         </div>
         <div style={{ width: BUTTON_GAP, background: 'transparent' }} />
         <div className="flex items-center justify-center" style={{ width: BUTTON_SIZE, background: 'var(--swipe-delete-bg)' }}>
-          <Button
-            variant="ghost"
-            size="icon"
+        <Button
+          variant="ghost"
+          size="icon"
             className={`h-10 w-10 rounded-full text-white transition-all duration-200 ${showDeleteButton ? 'opacity-100' : 'opacity-70'}`}
-            onClick={handleDelete}
-            aria-label="Delete note"
-          >
-            <Trash2 className="h-5 w-5" />
-          </Button>
+          onClick={handleDelete}
+          aria-label="Delete note"
+        >
+          <Trash2 className="h-5 w-5" />
+        </Button>
         </div>
       </div>
       
       <div
         ref={noteRef}
         className={`note-item p-4 cursor-pointer relative ${isActive ? "active" : ""} bg-background`}
-        style={{
+        style={{ 
           transform: `translateX(${translateX}px)`,
           transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(.4,2,.6,1)',
           zIndex: 2

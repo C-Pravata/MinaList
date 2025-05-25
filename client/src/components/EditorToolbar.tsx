@@ -151,8 +151,8 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             
             const data = await response.json();
             if (data && data.url) { // Check if data.url exists
-              if (range) {
-                quill.insertEmbed(range.index, 'image', data.url);
+            if (range) {
+              quill.insertEmbed(range.index, 'image', data.url);
               } else {
                 // If no range (editor not focused?), append to the end or handle appropriately
                 const currentLength = quill.getLength();
@@ -233,18 +233,18 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
       }
     } else {
       // Web platform: Use existing webkitSpeechRecognition
-      if (!('webkitSpeechRecognition' in window)) {
-        alert('Speech recognition is not supported in your browser. Try Chrome or Edge.');
-        return;
-      }
-      
-      // @ts-ignore - This is a browser API
-      const recognition = new window.webkitSpeechRecognition();
+    if (!('webkitSpeechRecognition' in window)) {
+      alert('Speech recognition is not supported in your browser. Try Chrome or Edge.');
+      return;
+    }
+    
+    // @ts-ignore - This is a browser API
+    const recognition = new window.webkitSpeechRecognition();
       recognition.continuous = true; // Keep listening
-      recognition.interimResults = true;
+    recognition.interimResults = true;
       let lastInsertedLength = 0; // To handle overwriting interim results
-
-      recognition.onresult = (event: any) => {
+    
+    recognition.onresult = (event: any) => {
         const range = quill.getSelection();
         if (range) {
           let transcript = '';
@@ -268,22 +268,22 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             quill.insertText(range.index - lastInsertedLength + transcript.length, ' '); // Add space after final
             quill.setSelection(range.index - lastInsertedLength + transcript.length + 1);
             lastInsertedLength = 0; // Reset for next final phrase
-          }
         }
-      };
-      
-      recognition.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
-        recognition.stop();
+      }
+    };
+    
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      recognition.stop();
         lastInsertedLength = 0;
       };
 
       recognition.onend = () => {
          // You might want to change the button state here
          lastInsertedLength = 0;
-      };
-      
-      recognition.start();
+    };
+    
+    recognition.start();
       // Consider a visual cue that it's listening and a way to stop it.
       // The original timeout is removed for continuous mode.
     }
@@ -370,8 +370,8 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">Bullet List</TooltipContent>
           </Tooltip>
-
-          {/* Insert options group */}
+        
+        {/* Insert options group */}
           <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -433,7 +433,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             <TooltipContent side="bottom" className="text-xs">Add Image</TooltipContent>
           </Tooltip>
         
-          {/* AI, Voice & Share section */}
+        {/* AI, Voice & Share section */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
@@ -462,7 +462,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             <TooltipContent side="bottom" className="text-xs">Share Note</TooltipContent>
           </Tooltip>
         </div> {/* End of the scrollable icon group */}
-        
+          
         {/* AI Assistant button - kept separate to be on the far right and potentially not scroll */}
         <div className="flex-shrink-0"> {/* Prevents this div from shrinking */}
           <Tooltip>

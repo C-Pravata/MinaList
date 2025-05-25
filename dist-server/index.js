@@ -446,7 +446,7 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Failed to delete note" });
     }
   });
-  app2.post("/api/upload", async (req, res) => {
+  app2.post("/api/upload", upload.single("image"), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -784,6 +784,20 @@ ${notesContext}`
       });
     }
   });
+  app2.use((err, req, res, next) => {
+    console.error("Global error handler caught:", err);
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ message: `Multer error: ${err.message}` });
+    } else if (err) {
+      if (err.message && err.message.startsWith("Invalid file type")) {
+        return res.status(400).json({ message: err.message });
+      }
+      return res.status(500).json({ message: err.message || "Internal server error" });
+    }
+    if (!res.headersSent) {
+      res.status(404).json({ message: "Resource not found or error in routing." });
+    }
+  });
   const httpServer = createServer(app2);
   return httpServer;
 }
@@ -809,6 +823,20 @@ var vite_config_default = defineConfig({
       )
     ] : []
   ],
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+        secure: false
+      },
+      "/uploads": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+        secure: false
+      }
+    }
+  },
   resolve: {
     alias: {
       "@": path3.resolve(import.meta.dirname, "client", "src"),
