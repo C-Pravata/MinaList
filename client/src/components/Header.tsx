@@ -30,7 +30,7 @@ export default function Header({ isEditing, onDone, onBack }: HeaderProps) {
             <span>Notes</span>
           </Button>
         ) : (
-          <div className="flex items-center gap-0.5 h-9">
+          <div className="flex items-center gap-0.5 h-8">
             <img 
               src="/assets/MinaIcon.svg" 
               alt="Mina" 
@@ -42,7 +42,7 @@ export default function Header({ isEditing, onDone, onBack }: HeaderProps) {
         )}
       </div>
       
-      <div className="flex items-center gap-1 h-9">
+      <div className="flex items-center gap-1 h-8">
         {isEditing ? (
           <Button 
             variant="ghost" 
