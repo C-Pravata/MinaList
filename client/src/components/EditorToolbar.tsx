@@ -37,6 +37,7 @@ interface EditorToolbarProps {
 export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssistantToggle, activeNoteTitle }: EditorToolbarProps) {
   const linkInputRef = useRef<HTMLInputElement>(null);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   
   const uploadAndInsertImage = useCallback(async (file: File, quillInstance: any) => {
     console.log('[uploadAndInsertImage] Function called with Quill instance:', !!quillInstance);
@@ -294,6 +295,218 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
     };
   };
   
+  const handleSpeechRecognitionToggle = async () => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+
+    if (isRecording) {
+      // Currently recording, so stop it
+      try {
+        if (Capacitor.isNativePlatform()) {
+          await SpeechRecognition.stop();
+          console.log('[SpeechRecognition] Stopped via button toggle (Native).');
+        } else {
+          // @ts-ignore
+          if (window.webkitSpeechRecognitionInstance) {
+            // @ts-ignore
+            window.webkitSpeechRecognitionInstance.stop();
+            console.log('[SpeechRecognition] Stopped via button toggle (Web).');
+          }
+        }
+      } catch (error) {
+        console.error('[SpeechRecognition] Error stopping recognition:', error);
+        // Don't alert here, just log, as the main goal is to stop UI-wise
+      }
+      setIsRecording(false);
+      return;
+    }
+
+    // Not recording, so start it
+    setIsRecording(true); // Optimistically set to true, will revert on error
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const available = await SpeechRecognition.available();
+        if (!available) {
+          alert('Speech recognition is not available on this device.');
+          setIsRecording(false);
+          return;
+        }
+
+        let hasPermission = (await SpeechRecognition.checkPermissions()).speechRecognition === 'granted';
+        if (!hasPermission) {
+          const permissionResult = await SpeechRecognition.requestPermissions();
+          hasPermission = permissionResult.speechRecognition === 'granted';
+        }
+
+        if (!hasPermission) {
+          alert('Microphone and Speech Recognition permission is required for voice input.');
+          setIsRecording(false);
+          return;
+        }
+        
+        SpeechRecognition.removeAllListeners(); 
+
+        // Variables to manage native partial results replacement
+        let currentNativePartialText = "";
+        let nativePartialTextStartIndex: number | null = null;
+        let initialSelectionDone = false;
+
+        SpeechRecognition.addListener("partialResults", (data: any) => {
+          if (data.matches && data.matches.length > 0) {
+            const newTranscript = data.matches[0]; // This is the full current best guess
+            const currentSelection = quill.getSelection(); // Get current selection/cursor
+
+            if (!initialSelectionDone) {
+                // On the very first partial result, establish the start index
+                nativePartialTextStartIndex = currentSelection ? currentSelection.index : quill.getLength();
+                initialSelectionDone = true;
+            }
+            
+            // Ensure nativePartialTextStartIndex is not null (it should be set by now)
+            if (nativePartialTextStartIndex === null) {
+                nativePartialTextStartIndex = currentSelection ? currentSelection.index : quill.getLength(); // Fallback
+            }
+
+            // Delete the old partial text if it exists
+            if (currentNativePartialText.length > 0) {
+              quill.deleteText(nativePartialTextStartIndex, currentNativePartialText.length);
+            }
+
+            // Insert the new, updated partial text
+            quill.insertText(nativePartialTextStartIndex, newTranscript);
+            currentNativePartialText = newTranscript; // Update stored transcript
+
+            // Set selection to the end of the inserted text
+            quill.setSelection(nativePartialTextStartIndex + newTranscript.length);
+          }
+        });
+        
+        // Add listener for listening state changes (optional, but can be useful)
+        SpeechRecognition.addListener("listeningState", (data: any) => {
+          console.log('[SpeechRecognition] Listening state changed:', data.status);
+          if (data.status === "stopped" && isRecording) {
+            // If the OS/plugin stops it for some reason (e.g. silence timeout not handled by this plugin version)
+            // and we are still in recording state, reset it.
+            console.log('[SpeechRecognition] Recording stopped by OS/plugin, resetting state.');
+            setIsRecording(false);
+          }
+        });
+
+        await SpeechRecognition.start({
+          language: "en-US",
+          maxResults: 1, 
+          prompt: "Say something...",
+          partialResults: true,
+          popup: false, 
+        });
+        console.log('[SpeechRecognition] Started (Native).');
+        // setIsRecording(true) already set optimistically
+
+      } catch (error: any) {
+        console.error('Capacitor Speech Recognition error on start:', error);
+        // Check for the specific retry error, otherwise show generic
+        if (error && error.message && error.message.toLowerCase().includes('retry')) {
+          alert('Speech recognition service is busy. Please try again in a moment.');
+        } else {
+          alert('Could not start speech recognition. Please ensure microphone access is allowed.');
+        }
+        setIsRecording(false);
+      }
+    } else {
+      // Web platform: Use existing webkitSpeechRecognition
+      if (!('webkitSpeechRecognition' in window)) {
+        alert('Speech recognition is not supported in your browser. Try Chrome or Edge.');
+        setIsRecording(false);
+        return;
+      }
+      
+      // @ts-ignore
+      const recognition = new window.webkitSpeechRecognition();
+      // @ts-ignore 
+      window.webkitSpeechRecognitionInstance = recognition; // Store instance to stop it
+
+      recognition.continuous = true; 
+      recognition.interimResults = true;
+      let lastInsertedLength = 0; 
+    
+      recognition.onresult = (event: any) => {
+        const range = quill.getSelection();
+        if (range && isRecording) { // Check isRecording state here too
+          let transcript = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            transcript += event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              if (lastInsertedLength > 0) {
+                quill.deleteText(range.index - lastInsertedLength, lastInsertedLength);
+              }
+              quill.insertText(range.index - lastInsertedLength, transcript + ' ');
+              quill.setSelection(range.index - lastInsertedLength + transcript.length + 1);
+              lastInsertedLength = 0; 
+              // For continuous web, it might keep going. We rely on user to stop.
+              return; // Process final and wait for next
+            }
+          }
+          // Interim results handling
+          if (lastInsertedLength > 0) {
+            quill.deleteText(range.index - lastInsertedLength, lastInsertedLength);
+          }
+          quill.insertText(range.index - lastInsertedLength, transcript);
+          lastInsertedLength = transcript.length;
+        }
+      };
+    
+      recognition.onerror = (event: any) => {
+        console.error('Web Speech recognition error:', event.error);
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          alert('Microphone access denied or speech service not allowed. Please check browser permissions.');
+        }
+        setIsRecording(false);
+        // @ts-ignore
+        window.webkitSpeechRecognitionInstance = null;
+      };
+
+      recognition.onend = () => {
+         console.log('[SpeechRecognition] Ended (Web).');
+         // If it ends unexpectedly and wasn't stopped by user, reset state.
+         if (isRecording) { // Only set if it wasn't an intentional stop
+            setIsRecording(false);
+         }
+         // @ts-ignore
+         window.webkitSpeechRecognitionInstance = null;
+      };
+      
+      try {
+        recognition.start();
+        console.log('[SpeechRecognition] Started (Web).');
+        // setIsRecording(true) already set
+      } catch (e) {
+        console.error('Error starting Web Speech API:', e);
+        alert('Failed to start speech recognition in browser.');
+        setIsRecording(false);
+      }
+    }
+  };
+  
+  const handleShareNote = async () => {
+    try {
+      if (!quillRef.current) return;
+      
+      const quill = quillRef.current.getEditor();
+      const content = quill.getText();
+      const title = activeNoteTitle || 'My Note';
+      
+      await ShareService.share({
+        title: title,
+        text: content,
+        dialogTitle: 'Share note from Mina'
+      });
+      
+    } catch (error) {
+      console.error('Error sharing note:', error);
+    }
+  };
+
   useEffect(() => {
     const quill = quillRef.current?.getEditor();
     if (quill && Capacitor.isNativePlatform()) {
@@ -353,122 +566,22 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
     }
   }, [quillRef, uploadAndInsertImage]);
   
-  const startSpeechRecognition = async () => {
-    const quill = quillRef.current?.getEditor();
-    if (!quill) return;
-
-    if (Capacitor.isNativePlatform()) {
-      try {
-        const available = await SpeechRecognition.available();
-        if (!available) {
-          alert('Speech recognition is not available on this device.');
-          return;
-        }
-
-        const hasPermission = await SpeechRecognition.checkPermissions();
-        if (hasPermission.speechRecognition !== 'granted') {
-          const permissionResult = await SpeechRecognition.requestPermissions();
-          if (permissionResult.speechRecognition !== 'granted') {
-            alert('Microphone and Speech Recognition permission is required for voice input.');
-            return;
-          }
-        }
-
-        SpeechRecognition.addListener("partialResults", (data: any) => {
-          if (data.matches && data.matches.length > 0) {
-            const transcript = data.matches[0];
-            const range = quill.getSelection();
-            if (range) {
-              quill.insertText(range.index, transcript + ' ');
-              quill.setSelection(range.index + transcript.length + 1);
-            }
-          }
-        });
-
-        await SpeechRecognition.start({
-          language: "en-US",
-          maxResults: 1,
-          prompt: "Say something...",
-          partialResults: true,
-          popup: false,
-        });
-
-      } catch (error) {
-        console.error('Capacitor Speech Recognition error:', error);
-        alert('Could not start speech recognition.');
+  // Cleanup speech recognition listeners when component unmounts
+  useEffect(() => {
+    return () => {
+      if (Capacitor.isNativePlatform()) {
+        SpeechRecognition.removeAllListeners();
       }
-    } else {
-      // Web platform: Use existing webkitSpeechRecognition
-      if (!('webkitSpeechRecognition' in window)) {
-        alert('Speech recognition is not supported in your browser. Try Chrome or Edge.');
-        return;
-      }
-      
-      // @ts-ignore - This is a browser API
-      const recognition = new window.webkitSpeechRecognition();
-      recognition.continuous = true; // Keep listening
-      recognition.interimResults = true;
-      let lastInsertedLength = 0;
-    
-    recognition.onresult = (event: any) => {
-        const range = quill.getSelection();
-        if (range) {
-          let transcript = '';
-          let isFinal = false;
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            transcript += event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-              isFinal = true;
-            }
-          }
-
-          if (lastInsertedLength > 0) {
-            quill.deleteText(range.index - lastInsertedLength, lastInsertedLength);
-          }
-          
-          quill.insertText(range.index - lastInsertedLength, transcript);
-          lastInsertedLength = transcript.length;
-
-          if (isFinal) {
-            quill.insertText(range.index - lastInsertedLength + transcript.length, ' ');
-            quill.setSelection(range.index - lastInsertedLength + transcript.length + 1);
-            lastInsertedLength = 0;
-        }
+      // For web, if recognition instance exists, stop it
+      // @ts-ignore
+      if (window.webkitSpeechRecognitionInstance) {
+        // @ts-ignore
+        window.webkitSpeechRecognitionInstance.stop();
+        // @ts-ignore
+        window.webkitSpeechRecognitionInstance = null;
       }
     };
-    
-    recognition.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error);
-      recognition.stop();
-        lastInsertedLength = 0;
-      };
-
-      recognition.onend = () => {
-         lastInsertedLength = 0;
-    };
-    
-    recognition.start();
-    }
-  };
-  
-  const handleShareNote = async () => {
-    try {
-      if (!quillRef.current) return;
-      
-      const quill = quillRef.current.getEditor();
-      const content = quill.getText();
-      const title = activeNoteTitle || 'My Note';
-      
-      await ShareService.share({
-        title: title,
-        text: content,
-        dialogTitle: 'Share note from Mina'
-      });
-      
-    } catch (error) {
-      console.error('Error sharing note:', error);
-    }
-  };
+  }, []); // Empty dependency array means this runs once on mount and unmount
 
   return (
     <TooltipProvider>
@@ -596,13 +709,15 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-9 w-9 rounded-full text-foreground/80 hover:bg-secondary/40 hover:text-foreground flex items-center justify-center"
-                onClick={startSpeechRecognition}
+                className={`h-9 w-9 rounded-full hover:bg-secondary/40 flex items-center justify-center ${isRecording ? 'text-primary bg-primary/10' : 'text-foreground/80 hover:text-foreground'}`}
+                onClick={handleSpeechRecognitionToggle}
               >
                 <Mic className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">Voice to Text</TooltipContent>
+            <TooltipContent side="bottom" className="text-xs">
+              {isRecording ? "Stop Listening" : "Voice to Text"}
+            </TooltipContent>
           </Tooltip>
           
           <Tooltip>
