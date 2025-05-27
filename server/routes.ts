@@ -202,20 +202,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upload image for a note
-  app.post('/api/upload', upload.single('image'), async (req: Request, res: Response) => {
+  // Upload image (now expects Base64 JSON payload)
+  app.post('/api/upload', async (req: Request, res: Response) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({ message: 'No file uploaded' });
+      console.log('[SERVER /api/upload] Request received (Base64).');
+      console.log('[SERVER /api/upload] req.headers:', JSON.stringify(req.headers, null, 2));
+      console.log('[SERVER /api/upload] req.body (JSON payload):', JSON.stringify(req.body, null, 2));
+
+      const { file_data_url, original_filename, original_filetype } = req.body;
+
+      if (!file_data_url || typeof file_data_url !== 'string') {
+        return res.status(400).json({ message: 'No file_data_url provided or invalid format.' });
+      }
+      if (!original_filename || typeof original_filename !== 'string') {
+        return res.status(400).json({ message: 'No original_filename provided.' });
       }
 
-      // Return the file path that can be used in the note content
+      // Extract base64 data and mime type from data URL
+      // Format: data:[<mediatype>][;base64],<data>
+      const parts = file_data_url.split(';base64,');
+      if (parts.length !== 2) {
+        return res.status(400).json({ message: 'Invalid file_data_url format.' });
+      }
+      // const mimeType = parts[0].split(':')[1]; // e.g., image/png
+      const base64Data = parts[1];
+
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      const uploadDir = path.join(process.cwd(), "uploads");
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      // Use original_filename's extension or derive from original_filetype if necessary
+      const fileExtension = path.extname(original_filename) || (original_filetype ? `.${original_filetype.split('/')[1]}` : '.bin');
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const newFilename = uniqueSuffix + fileExtension;
+      const filePath = path.join(uploadDir, newFilename);
+
+      await fs.promises.writeFile(filePath, buffer);
+      console.log(`[SERVER /api/upload] File saved to: ${filePath}`);
+
       res.json({
-        url: `/uploads/${req.file.filename}`,
-        filename: req.file.filename
+        url: `/uploads/${newFilename}`,
+        filename: newFilename
       });
+
     } catch (error) {
-      res.status(500).json({ message: 'Failed to upload file' });
+      console.error('[SERVER /api/upload] Error processing Base64 upload:', error);
+      res.status(500).json({ message: 'Failed to upload file from Base64 data' });
     }
   });
 

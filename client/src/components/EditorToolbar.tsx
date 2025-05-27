@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { 
   Bold, 
   Italic, 
@@ -14,6 +14,7 @@ import {
   Share
 } from "lucide-react";
 import { Capacitor } from '@capacitor/core';
+import { CapacitorHttp, HttpResponse } from '@capacitor/core';
 import { SpeechRecognition } from "@capacitor-community/speech-recognition";
 import { ShareService } from "@/services/ShareService";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getDeviceId } from "@/lib/deviceId";
+import { Clipboard } from '@capacitor/clipboard';
 
 interface EditorToolbarProps {
   onDelete: () => void;
@@ -36,6 +38,176 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
   const linkInputRef = useRef<HTMLInputElement>(null);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
   
+  const uploadAndInsertImage = useCallback(async (file: File, quillInstance: any) => {
+    console.log('[uploadAndInsertImage] Function called with Quill instance:', !!quillInstance);
+    if (file) {
+      console.log('[uploadAndInsertImage] Received file - Name:', file.name, 'Size:', file.size, 'Type:', file.type, 'Is File instance:', file instanceof File);
+    } else {
+      console.error('[uploadAndInsertImage] Received null or undefined file object.');
+      return;
+    }
+
+    if (!quillInstance) {
+      console.error('[uploadAndInsertImage] Quill instance is null or undefined.');
+      return;
+    }
+    const range = quillInstance.getSelection(true);
+    console.log('[uploadAndInsertImage] Current selection range:', range);
+
+    const deviceId = String(getDeviceId());
+    console.log('[uploadAndInsertImage] Using deviceId:', deviceId);
+
+    try {
+      let imageUrl: string | null = null;
+
+      if (Capacitor.isNativePlatform()) {
+        console.log('[uploadAndInsertImage] Native platform detected. Using CapacitorHttp with Base64.');
+        
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          try {
+            const base64DataUrl = reader.result as string;
+            console.log('[uploadAndInsertImage] File converted to Base64. Length:', base64DataUrl.length);
+
+            const options = {
+              url: `http://192.168.1.196:5000/api/upload`,
+              method: 'POST',
+              headers: {
+                'x-device-id': deviceId,
+                'Content-Type': 'application/json' // Sending JSON data now
+              },
+              data: { // Sending file info as JSON
+                file_data_url: base64DataUrl,
+                original_filename: file.name,
+                original_filetype: file.type
+              },
+            };
+            console.log('[uploadAndInsertImage] CapacitorHttp options (Base64):', { 
+              url: options.url, 
+              method: options.method, 
+              headers: options.headers, 
+              data: `JSON payload (dataURL length: ${base64DataUrl.length}, filename: ${file.name})` 
+            });
+
+            const response: HttpResponse = await CapacitorHttp.request(options);
+            console.log('[uploadAndInsertImage] CapacitorHttp response status (Base64):', response.status);
+            console.log('[uploadAndInsertImage] CapacitorHttp response data (Base64):', response.data);
+
+            if (response.status >= 200 && response.status < 300) {
+              if (response.data && response.data.url) {
+                imageUrl = response.data.url;
+                // Quill insertion will happen outside this async reader callback
+              } else {
+                console.error("CapacitorHttp (Base64): Image upload response did not contain a valid URL:", response.data);
+                alert("CapacitorHttp (Base64): Image uploaded, but server did not return a valid image URL. Check console.");
+                throw new Error("CapacitorHttp (Base64): Invalid image URL from server");
+              }
+            } else {
+              let errorDetails = `CapacitorHttp (Base64): Upload failed with status: ${response.status}`;
+              if (response.data) {
+                errorDetails += ` - ${response.data.message || JSON.stringify(response.data)}`;
+              }
+              console.error(errorDetails);
+              alert(`CapacitorHttp (Base64): Image upload failed: ${response.status}. Check console for details.`);
+              throw new Error(errorDetails);
+            }
+
+            // After processing, insert into Quill
+            if (imageUrl) {
+              // Construct absolute URL for Quill when on native platform
+              const absoluteImageUrl = Capacitor.isNativePlatform() 
+                ? `http://192.168.1.196:5000${imageUrl}` 
+                : imageUrl; // For web, relative URL from Vite proxy is fine
+              
+              console.log('[uploadAndInsertImage] Inserting into Quill with URL:', absoluteImageUrl);
+              quillInstance.insertEmbed(range ? range.index : quillInstance.getLength(), 'image', absoluteImageUrl);
+              if (range) {
+                  quillInstance.setSelection(range.index + 1);
+              }
+            } else {
+              console.error("[uploadAndInsertImage] imageUrl was not set after Base64 upload attempt.");
+            }
+
+          } catch (innerError) {
+            // Handle errors from within reader.onloadend (e.g., CapacitorHttp.request failure)
+            console.error('[uploadAndInsertImage] Error during Base64 upload/processing:', innerError);
+            const errorMessage = innerError instanceof Error ? innerError.message : String(innerError);
+            if (!errorMessage.includes('Upload failed') && !errorMessage.includes('Invalid image URL')) {
+              alert('An unexpected error occurred during image upload (Base64). Please try again.');
+            }
+          }
+        };
+
+        reader.onerror = (error) => {
+          console.error('[uploadAndInsertImage] FileReader error:', error);
+          alert('Failed to read file for upload. Please try again.');
+        };
+
+        reader.readAsDataURL(file); // Start reading the file
+        // Note: The actual Quill insertion will now happen asynchronously within reader.onloadend
+        // The outer function will return before the upload completes.
+        return; // Prevent further execution in the outer function for native path
+
+      } else {
+        console.log('[uploadAndInsertImage] Web platform detected. Using fetch with FormData.');
+        const webFormData = new FormData(); // Re-define formData for web path
+        webFormData.append('image', file);
+
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          headers: {
+            'x-device-id': deviceId,
+          },
+          body: webFormData, // Use webFormData for fetch
+        });
+
+        if (!response.ok) {
+          let errorDetails = `Fetch: Upload failed with status: ${response.status}`;
+          try {
+            const errorData = await response.json();
+            errorDetails += ` - ${errorData.message || JSON.stringify(errorData)}`;
+          } catch (e) {
+            try {
+              const errorText = await response.text();
+              errorDetails += ` - ${errorText}`;
+            } catch (e2) { /* no-op */ }
+          }
+          console.error(errorDetails);
+          alert(`Fetch: Image upload failed: ${response.statusText || 'Server error'}. Check console for details.`);
+          throw new Error(errorDetails);
+        }
+
+        const data = await response.json();
+        if (data && data.url) {
+          imageUrl = data.url;
+        } else {
+          console.error("Fetch: Image upload response did not contain a valid URL:", data);
+          alert("Fetch: Image uploaded, but server did not return a valid image URL. Check console.");
+          throw new Error("Fetch: Invalid image URL from server");
+        }
+      }
+
+      if (imageUrl) {
+        quillInstance.insertEmbed(range ? range.index : quillInstance.getLength(), 'image', imageUrl);
+        if (range) {
+            quillInstance.setSelection(range.index + 1);
+        }
+      } else {
+        console.error("[uploadAndInsertImage] imageUrl was not set after upload attempt.");
+        throw new Error("Image URL not obtained after upload.");
+      }
+
+    } catch (error) {
+      console.error('[uploadAndInsertImage] Full error object:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Image upload error in uploadAndInsertImage:', errorMessage);
+      
+      if (!errorMessage.includes('Upload failed') && !errorMessage.includes('Invalid image URL')) {
+        alert('An unexpected error occurred during image upload. Please try again.');
+      }
+    }
+  }, []);
+  
   const handleFormat = (format: string) => {
     const quill = quillRef.current?.getEditor();
     quill?.format(format, !quill.getFormat()[format]);
@@ -47,7 +219,6 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
 
     let normalizedUrl = url.trim();
     if (!normalizedUrl) {
-      // If URL is empty, attempt to unlink any existing link at the selection
       const currentRange = quill.getSelection();
       if (currentRange) {
         quill.formatText(currentRange.index, currentRange.length, 'link', false);
@@ -59,20 +230,17 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
       normalizedUrl = 'https://' + normalizedUrl;
     }
 
-    quill.focus(); // Ensure the editor has focus before attempting to get selection or insert
+    quill.focus();
     const range = quill.getSelection();
 
     if (range) {
       if (range.length > 0) {
-        // Text is selected, format it as a link
         quill.formatText(range.index, range.length, 'link', normalizedUrl);
       } else {
-        // No text is selected, insert the URL as the link text
         quill.insertText(range.index, normalizedUrl, 'link', normalizedUrl);
         quill.setSelection(range.index + normalizedUrl.length, 0);
       }
     } else {
-      // Fallback if range is still null after focusing (should be rare)
       const currentLength = quill.getLength();
       quill.insertText(currentLength, normalizedUrl, 'link', normalizedUrl);
       quill.setSelection(currentLength + normalizedUrl.length, 0);
@@ -102,86 +270,94 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
   };
 
   const handleImageInsert = () => {
+    console.log('[handleImageInsert] Add Image button clicked. Creating file input.');
     const input = document.createElement('input');
     input.setAttribute('type', 'file');
     input.setAttribute('accept', 'image/*');
     input.click();
     
     input.onchange = async () => {
+      console.log('[handleImageInsert] file input onchange event triggered.');
       if (input.files && input.files[0]) {
+        const selectedFile = input.files[0];
+        console.log('[handleImageInsert] Details for selectedFile - Name:', selectedFile.name, 'Size:', selectedFile.size, 'Type:', selectedFile.type, 'Is File instance:', selectedFile instanceof File);
         const quill = quillRef.current?.getEditor();
         if (quill) {
-          const range = quill.getSelection();
-          const file = input.files[0];
-          
-          // Create form data for upload
-          const formData = new FormData();
-          formData.append('image', file);
-          
-          try {
-            const deviceId = getDeviceId();
-
-            const response = await fetch('/api/upload', {
-              method: 'POST',
-              headers: {
-                'x-device-id': deviceId,
-                // 'Content-Type' is not needed here; browser sets it for FormData with boundary
-              },
-              body: formData,
-            });
-            
-            if (!response.ok) {
-              let errorDetails = `Upload failed with status: ${response.status}`;
-              try {
-                const errorData = await response.json(); // Try to parse as JSON
-                errorDetails += ` - ${errorData.message || JSON.stringify(errorData)}`;
-              } catch (e) {
-                // If not JSON, try to get as text
-                try {
-                  const errorText = await response.text();
-                  errorDetails += ` - ${errorText}`;
-                } catch (e2) {
-                  // If text also fails, just use the status
-                }
-              }
-              console.error(errorDetails);
-              alert(`Image upload failed: ${response.statusText || 'Server error'}. Check console for details.`); // Basic user feedback
-              throw new Error(errorDetails);
-            }
-            
-            const data = await response.json();
-            if (data && data.url) { // Check if data.url exists
-            if (range) {
-              quill.insertEmbed(range.index, 'image', data.url);
-              } else {
-                // If no range (editor not focused?), append to the end or handle appropriately
-                const currentLength = quill.getLength();
-                quill.insertEmbed(currentLength, 'image', data.url);
-                console.warn("Quill editor was not focused. Image inserted at the end.");
-              }
-            } else {
-              console.error("Image upload response did not contain a valid URL:", data);
-              alert("Image uploaded, but server did not return a valid image URL. Check console.");
-              throw new Error("Invalid image URL from server");
-            }
-          } catch (error) {
-            console.error('Image upload error:', error);
-            // alert('Failed to upload image. See console for details.'); // Already alerted for response.ok or data.url issues
-            if (!(error instanceof Error && error.message.startsWith('Upload failed')) && !(error instanceof Error && error.message.startsWith('Invalid image URL'))) {
-                alert('An unexpected error occurred during image upload. Please try again.');
-            }
-          }
+          console.log('[handleImageInsert] Quill instance found. Calling uploadAndInsertImage.');
+          await uploadAndInsertImage(selectedFile, quill);
+        } else {
+          console.error('[handleImageInsert] Quill instance not found after file selection.');
         }
+      } else {
+        console.warn('[handleImageInsert] No files selected or input.files is null.');
       }
     };
   };
+  
+  useEffect(() => {
+    const quill = quillRef.current?.getEditor();
+    if (quill && Capacitor.isNativePlatform()) {
+      const handleNativePaste = async (event: ClipboardEvent) => {
+        console.log('[Native Paste] Event triggered');
+        try {
+          console.log('[Native Paste] Attempting Clipboard.read()');
+          const clipboardRead = await Clipboard.read();
+          console.log('[Native Paste] Clipboard.read() result:', JSON.stringify(clipboardRead, null, 2));
+
+          if (clipboardRead.type.startsWith('image/') && clipboardRead.value) {
+            console.log('[Native Paste] Image type detected on clipboard:', clipboardRead.type);
+            event.preventDefault(); 
+            event.stopPropagation(); 
+
+            let file: File | null = null;
+            if (clipboardRead.value.startsWith('data:image')) {
+              console.log('[Native Paste] Image is a data URL. Converting to File.');
+              const fetchRes = await fetch(clipboardRead.value);
+              const blob = await fetchRes.blob();
+              const extension = clipboardRead.type.split('/')[1] || 'png';
+              const fileName = `pasted_image_${Date.now()}.${extension}`;
+              file = new File([blob], fileName, { type: blob.type });
+              console.log('[Native Paste] File object created from data URL:', file);
+            } else if (clipboardRead.value.startsWith('file://')) {
+              console.warn("[Native Paste] Pasted image is a file URI. This path is not fully implemented for direct upload yet. URI:", clipboardRead.value);
+            } else {
+               console.warn('[Native Paste] Clipboard image value is not a data URL or recognized file URI:', clipboardRead.value.substring(0, 100) + '...');
+            }
+
+            if (file) {
+              console.log('[Native Paste] Attempting to upload and insert image file.');
+              await uploadAndInsertImage(file, quill);
+              console.log('[Native Paste] Image upload and insert process completed.');
+            } else {
+                console.warn("[Native Paste] No file object was created for upload.");
+            }
+          } else {
+            console.log('[Native Paste] Clipboard content is not an image or value is missing. Type:', clipboardRead.type, 'Value exists:', !!clipboardRead.value);
+          }
+        } catch (err) {
+          console.error('[Native Paste] Error during Clipboard.read() or processing:', err);
+        }
+      };
+
+      quill.root.addEventListener('paste', handleNativePaste, true); 
+      console.log('[Native Paste] Listener attached to Quill root.');
+
+      return () => {
+        quill.root.removeEventListener('paste', handleNativePaste, true);
+        console.log('[Native Paste] Listener removed from Quill root.');
+      };
+    } else {
+      if (Capacitor.isNativePlatform()) {
+        console.log('[Native Paste] Quill instance not available. Listener not attached.');
+      }
+    }
+  }, [quillRef, uploadAndInsertImage]);
   
   const startSpeechRecognition = async () => {
     const quill = quillRef.current?.getEditor();
     if (!quill) return;
 
     if (Capacitor.isNativePlatform()) {
-      // Native platform: Use Capacitor plugin
       try {
         const available = await SpeechRecognition.available();
         if (!available) {
@@ -198,17 +374,11 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
           }
         }
 
-        // Add listener for partial results
         SpeechRecognition.addListener("partialResults", (data: any) => {
           if (data.matches && data.matches.length > 0) {
-            const transcript = data.matches[0]; // Get the most likely transcript
-            // This is tricky: Web API inserts as you speak, plugin might give full phrases.
-            // For now, let's assume we want to append if there's a selection or insert at cursor.
+            const transcript = data.matches[0];
             const range = quill.getSelection();
             if (range) {
-              // Potentially clear previous partial result if an existing one is being built
-              // This part needs careful handling based on how partial results are delivered.
-              // For simplicity, we'll just insert.
               quill.insertText(range.index, transcript + ' ');
               quill.setSelection(range.index + transcript.length + 1);
             }
@@ -217,15 +387,11 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
 
         await SpeechRecognition.start({
           language: "en-US",
-          maxResults: 1, // We usually want the best single match for dictation
-          prompt: "Say something...", // Android only
+          maxResults: 1,
+          prompt: "Say something...",
           partialResults: true,
-          popup: false, // Android only, use false for inline experience
+          popup: false,
         });
-
-        // Consider adding a way to stop listening, e.g., tapping the button again
-        // or a timeout like the web version had.
-        // For now, it might stop on silence or require a manual stop call if you add one.
 
       } catch (error) {
         console.error('Capacitor Speech Recognition error:', error);
@@ -233,16 +399,16 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
       }
     } else {
       // Web platform: Use existing webkitSpeechRecognition
-    if (!('webkitSpeechRecognition' in window)) {
-      alert('Speech recognition is not supported in your browser. Try Chrome or Edge.');
-      return;
-    }
-    
-    // @ts-ignore - This is a browser API
-    const recognition = new window.webkitSpeechRecognition();
+      if (!('webkitSpeechRecognition' in window)) {
+        alert('Speech recognition is not supported in your browser. Try Chrome or Edge.');
+        return;
+      }
+      
+      // @ts-ignore - This is a browser API
+      const recognition = new window.webkitSpeechRecognition();
       recognition.continuous = true; // Keep listening
-    recognition.interimResults = true;
-      let lastInsertedLength = 0; // To handle overwriting interim results
+      recognition.interimResults = true;
+      let lastInsertedLength = 0;
     
     recognition.onresult = (event: any) => {
         const range = quill.getSelection();
@@ -256,7 +422,6 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             }
           }
 
-          // Delete the previous interim result
           if (lastInsertedLength > 0) {
             quill.deleteText(range.index - lastInsertedLength, lastInsertedLength);
           }
@@ -265,9 +430,9 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
           lastInsertedLength = transcript.length;
 
           if (isFinal) {
-            quill.insertText(range.index - lastInsertedLength + transcript.length, ' '); // Add space after final
+            quill.insertText(range.index - lastInsertedLength + transcript.length, ' ');
             quill.setSelection(range.index - lastInsertedLength + transcript.length + 1);
-            lastInsertedLength = 0; // Reset for next final phrase
+            lastInsertedLength = 0;
         }
       }
     };
@@ -279,23 +444,19 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
       };
 
       recognition.onend = () => {
-         // You might want to change the button state here
          lastInsertedLength = 0;
     };
     
     recognition.start();
-      // Consider a visual cue that it's listening and a way to stop it.
-      // The original timeout is removed for continuous mode.
     }
   };
   
-  // Handle sharing note content using the ShareService
   const handleShareNote = async () => {
     try {
       if (!quillRef.current) return;
       
       const quill = quillRef.current.getEditor();
-      const content = quill.getText(); // Get plain text content
+      const content = quill.getText();
       const title = activeNoteTitle || 'My Note';
       
       await ShareService.share({
@@ -312,9 +473,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
   return (
     <TooltipProvider>
       <div className="editor-toolbar bg-background/80 backdrop-blur-md border-b border-border py-1 px-4 flex items-center justify-between gap-2 sticky top-0 z-10">
-        {/* Combined group for all formatting, insert, and action icons */}
         <div className="flex items-center flex-nowrap gap-x-1 overflow-x-auto no-scrollbar flex-grow"> 
-          {/* Basic Formatting */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
@@ -371,7 +530,6 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             <TooltipContent side="bottom" className="text-xs">Bullet List</TooltipContent>
           </Tooltip>
         
-        {/* Insert options group */}
           <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -433,7 +591,6 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             <TooltipContent side="bottom" className="text-xs">Add Image</TooltipContent>
           </Tooltip>
         
-        {/* AI, Voice & Share section */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
@@ -461,16 +618,15 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">Share Note</TooltipContent>
           </Tooltip>
-        </div> {/* End of the scrollable icon group */}
+        </div>
           
-        {/* AI Assistant button - kept separate to be on the far right and potentially not scroll */}
-        <div className="flex-shrink-0"> {/* Prevents this div from shrinking */}
+        <div className="flex-shrink-0">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="ghost" 
-                size="sm" // size="sm" might be overridden by h-X w-X
-                className="h-10 w-10 rounded-full text-primary hover:bg-primary/10 flex items-center justify-center p-1.5" // Kept AI button slightly larger
+                size="sm"
+                className="h-10 w-10 rounded-full text-primary hover:bg-primary/10 flex items-center justify-center p-1.5"
                 onClick={onAiAssistantToggle}
                 aria-label="AI Assistant"
               >
