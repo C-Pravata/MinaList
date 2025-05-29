@@ -3,9 +3,17 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Note, InsertNote as FullInsertNote, UpdateNote } from "@shared/schema";
+import { Filesystem, Directory, Encoding, FileReadResult, FileWriteResult, CopyResult, StatResult, GetUriResult } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
+import { SharedItem } from '@minanotes/sharing-helper'; // Assuming SharedItem is exported
 
 // Client-side payload for creating a note does not include device_id
 type ClientInsertNote = Omit<FullInsertNote, "device_id">;
+
+interface PendingImageInfo {
+  noteId: number;
+  imagePath: string;
+}
 
 interface NotesContextType {
   notes: Note[];
@@ -17,12 +25,16 @@ interface NotesContextType {
   deleteActiveNote: () => Promise<void>;
   isLoading: boolean;
   togglePin: (id: number, pin: boolean) => Promise<void>;
+  handleSharedItem: (item: SharedItem) => Promise<Note | null>;
+  pendingImageForNewNote: PendingImageInfo | null;
+  setPendingImageForNewNote: (info: PendingImageInfo | null) => void;
 }
 
 const NotesContext = createContext<NotesContextType | undefined>(undefined);
 
 export function NotesProvider({ children }: { children: ReactNode }) {
   const [activeNote, setActiveNote] = useState<Note | null>(null);
+  const [pendingImageForNewNote, setPendingImageForNewNote] = useState<PendingImageInfo | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -175,6 +187,76 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     } as UpdateNote);
   };
 
+  const handleSharedItem = async (item: SharedItem): Promise<Note | null> => {
+    if (!item || !item.type || !item.value) {
+      console.warn("handleSharedItem: Invalid item received", item);
+      return null;
+    }
+
+    try {
+      const newNote = await createNote();
+      if (!newNote || !newNote.id) {
+        console.error("handleSharedItem: Failed to create a new note shell.");
+        toast({ title: "Error Sharing", description: "Could not create new note.", variant: "destructive" });
+        return null;
+      }
+
+      let titleToSave = "Shared Content";
+      let contentToSave = ""; // Default to empty, will be updated if not an image requiring special handling
+      let updatedNote = newNote; // Initialize with the newly created note structure
+
+      if (item.type === 'url') {
+        titleToSave = "Shared Link";
+        contentToSave = `<p>Shared URL: <a href="${item.value}" target="_blank">${item.value}</a></p>`;
+        updatedNote = await updateNote(newNote.id, { title: titleToSave, content: contentToSave, is_pinned: newNote.is_pinned, tags: newNote.tags, color: newNote.color });
+      } else if (item.type === 'image') {
+        titleToSave = "Shared Image";
+        let originalPath = item.value!;
+        if (!originalPath.startsWith('file://')) {
+          originalPath = `file://${originalPath}`;
+        }
+        const originalFileName = originalPath.substring(originalPath.lastIndexOf('/') + 1);
+        const safeOriginalFileName = originalFileName.replace(/[^a-zA-Z0-9_.-]/g, '_');
+        const fileName = `shared_image_${Date.now()}_${safeOriginalFileName}`;
+        console.log(`handleSharedItem: Processing image. Original: ${originalPath}, Target: ${fileName}`);
+
+        try {
+          await Filesystem.copy({ from: originalPath, to: fileName, toDirectory: Directory.Data });
+          const newFileUriResult = await Filesystem.getUri({ directory: Directory.Data, path: fileName });
+          const webPath = Capacitor.convertFileSrc(newFileUriResult.uri);
+          console.log("handleSharedItem: Image copied. Web path for Quill: ", webPath);
+
+          // For images, initially save note with title and blank content.
+          // Store the webPath to be inserted by NoteEditor.
+          updatedNote = await updateNote(newNote.id, { title: titleToSave, content: "", is_pinned: newNote.is_pinned, tags: newNote.tags, color: newNote.color });
+          setPendingImageForNewNote({ noteId: updatedNote.id, imagePath: webPath });
+          contentToSave = ""; // Content will be set by Quill embedding
+
+        } catch (copyError: any) {
+          console.error("handleSharedItem: Error in image processing block:", JSON.stringify(copyError, Object.getOwnPropertyNames(copyError), 2));
+          contentToSave = `<p>Error processing shared image. Details: ${copyError.message || 'Unknown error'}</p>`;
+          updatedNote = await updateNote(newNote.id, { title: titleToSave, content: contentToSave, is_pinned: newNote.is_pinned, tags: newNote.tags, color: newNote.color });
+          toast({ title: "Error Sharing Image", description: `Could not save: ${copyError.message || 'Unknown'}` , variant: "destructive" });
+        }
+      } else {
+        console.warn("handleSharedItem: Unknown shared item type:", item.type);
+        contentToSave = `<p>Shared content (unknown type): ${item.value}</p>`;
+        updatedNote = await updateNote(newNote.id, { title: titleToSave, content: contentToSave, is_pinned: newNote.is_pinned, tags: newNote.tags, color: newNote.color });
+      }
+      
+      // This toast might be premature if image embedding is pending
+      if (item.type !== 'image') { 
+        toast({ title: "Content Shared", description: `${titleToSave} added to new note.` });
+      }
+      return updatedNote; // Return the note (meta-data updated, content might be pending for image)
+
+    } catch (error) {
+      console.error("handleSharedItem: Error processing shared item:", error);
+      toast({ title: "Error Sharing", description: "Unexpected error sharing content.", variant: "destructive" });
+      return null;
+    }
+  };
+
   return (
     <NotesContext.Provider
       value={{
@@ -187,6 +269,9 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         deleteActiveNote,
         isLoading,
         togglePin,
+        handleSharedItem,
+        pendingImageForNewNote,
+        setPendingImageForNewNote
       }}
     >
       {children}

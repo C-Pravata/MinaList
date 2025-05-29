@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import MarkdownShortcuts from 'quill-markdown-shortcuts';
-import { useNotes } from "@/hooks/useNotes";
+import { useNotesContext } from "@/lib/notesContext";
 import { useToast } from "@/hooks/use-toast";
 import EditorToolbar from "@/components/EditorToolbar";
 import AIAssistant from "@/components/AIAssistant";
@@ -12,72 +12,91 @@ import { Skeleton } from "@/components/ui/skeleton";
 Quill.register('modules/markdownShortcuts', MarkdownShortcuts);
 
 export default function NoteEditor() {
-  const { activeNote, updateNote, isLoading, deleteActiveNote } = useNotes();
-  const [content, setContent] = useState("");
+  const {
+    activeNote,
+    updateNote,
+    isLoading,
+    deleteActiveNote,
+    pendingImageForNewNote,
+    setPendingImageForNewNote
+  } = useNotesContext();
+  // Use a state for content that is explicitly set from activeNote.content
+  // ReactQuill will use this as its `value`.
+  const [editorContent, setEditorContent] = useState(""); 
   const [title, setTitle] = useState("");
   const quillRef = useRef<ReactQuill>(null);
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
   
-  // Initialize editor with active note content when it changes
   useEffect(() => {
     if (activeNote) {
-      const isNewBlankNote = activeNote.title === "" && activeNote.content === "";
+      setEditorContent(activeNote.content || ""); // This will be "" for new shared images
+      setTitle(activeNote.title || "");
 
-      if (isNewBlankNote) {
-        setContent("");
-        setTitle("");
-        if (quillRef.current) {
-          const editor = quillRef.current.getEditor();
-          editor.root.innerHTML = ""; // Directly set innerHTML to blank
-        }
-      } else {
-        setContent(activeNote.content || "");
-        setTitle(activeNote.title || "");
-        // If existing content is blank, ensure editor visually reflects this too
-        if (quillRef.current && !activeNote.content) {
-            quillRef.current.getEditor().root.innerHTML = "";
-        }
+      if (pendingImageForNewNote && 
+          pendingImageForNewNote.noteId === activeNote.id && 
+          quillRef.current) {
+        
+        const editor = quillRef.current.getEditor();
+        console.log("NoteEditor: Pending image found. Embedding:", pendingImageForNewNote.imagePath);
+        
+        // Editor should be blank here because activeNote.content was ""
+        // and ReactQuill was re-keyed with value="".
+        editor.insertEmbed(0, 'image', pendingImageForNewNote.imagePath);
+        
+        const newContentFromEmbed = editor.root.innerHTML;
+        const newTitleFromEmbed = activeNote.title || "Shared Image"; 
+        
+        setEditorContent(newContentFromEmbed); // Update state to reflect embedded image
+        setTitle(newTitleFromEmbed);
+
+        setPendingImageForNewNote(null);
+
+        setTimeout(() => {
+          handleSave(newContentFromEmbed, newTitleFromEmbed);
+          console.log("NoteEditor: Save triggered for embedded image.");
+        }, 100);
       }
     } else {
-      setContent("");
+      setEditorContent("");
       setTitle("");
-      if (quillRef.current) {
-        const editor = quillRef.current.getEditor();
-        editor.root.innerHTML = ""; // Directly set innerHTML to blank
-      }
     }
-  }, [activeNote]);
+  // Ensure all dependencies that could trigger re-evaluation of this logic are included.
+  // `handleSave` is not directly called here but is part of the flow initiated here.
+  // If `handleSave` itself depends on something not listed, it might use stale closures.
+  // However, `handleSave` uses `activeNote` from context, which IS a dependency.
+  }, [activeNote, pendingImageForNewNote, setPendingImageForNewNote, isLoading]); 
 
-  const handleContentChange = (value: string) => {
-    setContent(value);
+  const handleContentChange = (newContent: string, delta: any, source: any, editor: any) => {
+    setEditorContent(newContent); 
     
     let newTitle = "Untitled";
-    if (quillRef.current) {
-      const editor = quillRef.current.getEditor();
-      const editorFullText = editor.getText();
-      const lines = editorFullText.split('\n');
-      
-      let firstNonEmptyLine = "";
-      for (const line of lines) {
-        const trimmedLine = line.trim();
-        if (trimmedLine !== "") {
-          firstNonEmptyLine = trimmedLine;
-          break;
-        }
-      }
-
-      if (firstNonEmptyLine) {
-        newTitle = firstNonEmptyLine.length > 100 // Increased max title length a bit
-          ? firstNonEmptyLine.substring(0, 100) + "..." 
-          : firstNonEmptyLine;
-      } else {
-        newTitle = "Untitled"; // Default if all lines are empty or only whitespace
+    const editorFullText = editor.getText(); // Use the editor instance passed by onChange
+    const lines = editorFullText.split('\n');
+    
+    let firstNonEmptyLine = "";
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (trimmedLine !== "") {
+        firstNonEmptyLine = trimmedLine;
+        break;
       }
     }
+
+    if (firstNonEmptyLine) {
+      newTitle = firstNonEmptyLine.length > 100 // Increased max title length a bit
+        ? firstNonEmptyLine.substring(0, 100) + "..." 
+        : firstNonEmptyLine;
+    } else {
+      newTitle = "Untitled"; // Default if all lines are empty or only whitespace
+    }
     setTitle(newTitle);
-    handleSave(value, newTitle);
+
+    // Only call handleSave if the change was made by the user
+    if (source === 'user') {
+      handleSave(newContent, newTitle);
+    }
   };
 
   // Debounced save logic
@@ -93,20 +112,15 @@ export default function NoteEditor() {
     saveTimeoutRef.current = setTimeout(async () => {
       try {
         setSaving(true);
+        console.log(`NoteEditor: Saving note ${activeNote.id} - Title: ${titleToSave}, Content: ${contentToSave.substring(0,50)}...`);
         await updateNote(activeNote.id, {
           content: contentToSave,
           title: titleToSave,
         });
         setSaving(false);
-        // console.log("Note auto-saved successfully."); // Optional: log success if needed
       } catch (error) {
         setSaving(false);
         console.error("Failed to auto-save note:", error);
-        // toast({
-        //   title: "Failed to save note",
-        //   description: "Your changes could not be saved",
-        //   variant: "destructive",
-        // });
       }
     }, 1000);
   };
@@ -117,13 +131,8 @@ export default function NoteEditor() {
     try {
       await deleteActiveNote();
       console.log("Note deleted successfully from editor.");
-      // toast({
-      //   title: "Note deleted",
-      //   description: "Your note has been deleted",
-      // });
     } catch (error) {
       // Error handling for deleteActiveNote is in notesContext, uses console.error
-      // console.error("Failed to delete note from editor:", error); // Already handled by context
     }
   };
   
@@ -212,7 +221,7 @@ export default function NoteEditor() {
     const range = quill.getSelection();
     const position = range ? range.index : quill.getLength();
     
-    if (position > 0 && !content.endsWith('\n')) {
+    if (position > 0 && !editorContent.endsWith('\n')) {
       quill.insertText(position, '\n\n');
       quill.insertText(position + 2, text);
       quill.setSelection(position + 2 + text.length, 0);
@@ -222,7 +231,7 @@ export default function NoteEditor() {
     }
     
     const updatedContent = quill.root.innerHTML;
-    setContent(updatedContent);
+    setEditorContent(updatedContent);
     
     // Consistent title extraction after AI text insertion
     let newTitleFromAI = "Untitled";
@@ -249,14 +258,10 @@ export default function NoteEditor() {
     handleSave(updatedContent, newTitleFromAI);
     
     console.log("AI text added to note.");
-    // toast({
-    //   title: "AI text added",
-    //   description: "The AI-generated text has been added to your note",
-    // });
   };
 
   return (
-    <>
+    <div className="flex flex-col h-full note-editor-container bg-background">
       <EditorToolbar 
         onDelete={handleDeleteNote} 
         isSaving={saving}
@@ -268,9 +273,10 @@ export default function NoteEditor() {
       <div className="flex-1 overflow-y-auto note-editor bg-background">
         <div className="max-w-2xl mx-auto px-6 pt-4 pb-32">
           <ReactQuill
+            key={activeNote ? activeNote.id : 'no-active-note'} // Ensure key changes even if activeNote becomes null
             ref={quillRef}
             theme="snow"
-            value={content}
+            value={editorContent} // Bind to the new editorContent state
             onChange={handleContentChange}
             modules={modules}
             formats={formats}
@@ -291,6 +297,6 @@ export default function NoteEditor() {
         onClose={() => setAiAssistantOpen(false)}
         onInsertText={handleInsertAiText}
       />
-    </>
+    </div>
   );
 }
