@@ -3,7 +3,7 @@ import { getDeviceId } from './deviceId';
 import { Capacitor } from '@capacitor/core';
 
 // Determine the base URL for API requests
-let API_BASE_URL = '';
+export let API_BASE_URL = '';
 if (Capacitor.isNativePlatform()) {
   // Quick Test: For iOS simulator talking to a local backend on the same Mac
   // Ensure your local backend server (e.g., Express) is running on http://localhost:5000

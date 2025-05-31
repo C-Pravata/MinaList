@@ -67,7 +67,7 @@ class ShareViewController: SLComposeServiceViewController {
                 
                 if let url = item as? URL {
                     print("Share Extension: Received URL - \(url.absoluteString)")
-                    sharedUserDefaults?.set(["type": "url", "value": url.absoluteString], forKey: self.sharedKey)
+                    sharedUserDefaults?.set(["type": "url", "value": url.absoluteString, "text": self.contentText ?? ""], forKey: self.sharedKey)
                     // synchronize() is not strictly necessary on modern iOS but doesn't hurt for extensions.
                     sharedUserDefaults?.synchronize()
                 } else {
@@ -132,7 +132,7 @@ class ShareViewController: SLComposeServiceViewController {
                         do {
                             try dataToSave.write(to: fileURL)
                             print("Share Extension: Image saved to App Group at \(fileURL.path)")
-                            sharedUserDefaults?.set(["type": "image", "value": fileURL.path], forKey: self.sharedKey)
+                            sharedUserDefaults?.set(["type": "image", "value": fileURL.path, "text": self.contentText ?? ""], forKey: self.sharedKey)
                             sharedUserDefaults?.synchronize()
                         } catch let writeError {
                             print("Share Extension: Error saving image to App Group: \(writeError.localizedDescription)")
