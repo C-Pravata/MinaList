@@ -134,8 +134,8 @@ function AppMain() {
         if (newNote && newNote.id) {
           await updateNote(newNote.id, { title: noteTitle, content: noteContent });
           console.log("New note created and updated from shared item:", newNote.id);
-          setActiveNote(newNote);
-          console.log("Shared content processed. User should see new note in the list.");
+          console.log("Shared content processed. Navigating to dashboard.");
+          navigate("/", { replace: true });
         } else {
           console.error("Failed to create a new note for shared item.");
           alert("Error: Could not create a new note from shared content.");
