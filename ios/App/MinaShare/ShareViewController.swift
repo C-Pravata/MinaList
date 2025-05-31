@@ -18,9 +18,25 @@ class ShareViewController: SLComposeServiceViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        self.placeholder = "Add to PurpleNote..." // Optional: Placeholder text for the share sheet
+        self.placeholder = "Add to Mina..." // Updated placeholder with ellipsis
+        self.title = "" // Removed the title from the navigation bar
+
+        // Customize navigation bar appearance
+        if let navController = self.navigationController {
+            let appearance = UINavigationBarAppearance()
+            appearance.configureWithOpaqueBackground()
+            // RGB: (141, 57, 236) - HSL: (270, 91%, 65%)
+            appearance.backgroundColor = UIColor(red: 141/255.0, green: 57/255.0, blue: 236/255.0, alpha: 1.0)
+            appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
+            navController.navigationBar.standardAppearance = appearance
+            navController.navigationBar.scrollEdgeAppearance = appearance // For large titles, if applicable
+            navController.navigationBar.tintColor = UIColor.white // For button items like Cancel/Save
+        }
+        
+        // Change the "Post" button to "Save"
+        navigationItem.rightBarButtonItem?.title = "Save"
+        
         // You can customize the navigation bar further if needed:
-        // self.title = "Add to Note"
         // let postButton = UIBarButtonItem(title: "Post", style: .done, target: self, action: #selector(didSelectPost))
         // self.navigationItem.rightBarButtonItem = postButton
         // To change "Cancel" button text or add other items, you might need more customization.
