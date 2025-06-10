@@ -72,10 +72,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // 1. CORS Middleware - Placed before any routes or other custom middleware for /api
   const corsOptions = {
     origin: [
+      'capacitor://localhost',        // Allow capacitor default
+      'http://localhost',             // Allow capacitor live reload
       'http://localhost:8100',        // Vite dev server
-      'http://localhost',             // Capacitor iOS simulator
-      'capacitor://localhost',        // Capacitor iOS default scheme
-      'capacitor://app.mina.io',      // Your app's configured hostname from capacitor.config.ts
       'https://app.mina.io'           // Your app's configured hostname with https (if used)
       // Add any other origins if necessary
     ],
