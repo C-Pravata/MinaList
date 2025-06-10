@@ -5,9 +5,8 @@ import { Capacitor } from '@capacitor/core';
 // Determine the base URL for API requests
 export let API_BASE_URL = '';
 if (Capacitor.isNativePlatform()) {
-  // Quick Test: For iOS simulator talking to a local backend on the same Mac
-  // Ensure your local backend server (e.g., Express) is running on http://localhost:5000
-  API_BASE_URL = 'http://localhost:5000';
+  // For native builds, point to the production Render backend
+  API_BASE_URL = 'https://minalist.onrender.com';
 } else if (import.meta.env.PROD && import.meta.env.VITE_API_BASE_URL) {
   // Production web build: use VITE_API_BASE_URL from environment variables
   API_BASE_URL = import.meta.env.VITE_API_BASE_URL;

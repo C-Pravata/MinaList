@@ -57,7 +57,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ['/api/notes'] });
     },
     onError: (error) => {
-      console.error("Failed to create note:", error);
+      console.error("Failed to create note:", error.message || error);
       // toast({
       //   title: "Error",
       //   description: "Failed to create note",
@@ -76,7 +76,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ['/api/notes'] });
     },
     onError: (error) => {
-      console.error("Failed to update note:", error);
+      console.error("Failed to update note:", error.message || error);
       // toast({
       //   title: "Error",
       //   description: "Failed to update note",
@@ -94,7 +94,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ['/api/notes'] });
     },
     onError: (error) => {
-      console.error("Failed to delete note:", error);
+      console.error("Failed to delete note:", error.message || error);
       // toast({
       //   title: "Error",
       //   description: "Failed to delete note",
