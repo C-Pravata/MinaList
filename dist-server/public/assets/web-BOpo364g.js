@@ -1,0 +1,1 @@
+import{W as n}from"./index-CxO85jZh.js";class d extends n{async checkForSharedItem(){return console.log("SharingHelper.checkForSharedItem called on web - no action taken."),{type:void 0,value:void 0,text:void 0,base64Data:void 0,filename:void 0,errorLoadingImage:void 0}}async echo(e){return console.log("ECHO",e),e}}export{d as SharingHelperWeb};
