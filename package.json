@@ -4,12 +4,17 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "tsx --watch --env-file .env server/index.ts",
+    "dev": "concurrently \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:client": "vite",
+    "dev:server": "tsx watch server",
     "prebuild": "cd @minanotes/sharing-helper && npm install && npm run build && cd ../..",
-    "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist-server",
+    "build": "npm run db:push && vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist-server",
     "start": "NODE_ENV=production node -r dotenv/config dist-server/index.js",
-    "check": "tsc",
-    "db:push": "drizzle-kit push --env-file .env"
+    "test": "vitest",
+    "db:push": "drizzle-kit push:pg",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@capacitor-community/speech-recognition": "^7.0.0",
@@ -72,6 +77,7 @@
     "multer": "^1.4.5-lts.2",
     "next-themes": "^0.4.6",
     "openai": "^4.97.0",
+    "pg": "^8.16.0",
     "quill-markdown-shortcuts": "^0.0.10",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
@@ -108,7 +114,6 @@
     "@types/ws": "^8.5.13",
     "@vitejs/plugin-react": "^4.3.2",
     "autoprefixer": "^10.4.20",
-    "better-sqlite3": "^11.9.1",
     "dotenv": "^16.5.0",
     "drizzle-kit": "^0.30.4",
     "esbuild": "^0.25.0",

@@ -1,4 +1,11 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import {
+  pgTable,
+  text,
+  serial,
+  boolean,
+  jsonb,
+  timestamp,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { relations, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -10,36 +17,46 @@ import { z } from "zod";
 // JSON/JSONB becomes text with mode: 'json'.
 // Arrays become text with mode: 'json' or need a separate table.
 
-export const notes = sqliteTable("notes", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const notes = pgTable("notes", {
+  id: serial("id").primaryKey(),
   title: text("title").notNull(),
   content: text("content").notNull(),
-  is_pinned: integer("is_pinned", { mode: "boolean" }).default(false),
-  tags: text("tags", { mode: "json" }).$type<string[]>(), // Storing array as JSON string
+  is_pinned: boolean("is_pinned").default(false),
+  tags: jsonb("tags").$type<string[]>(),
   color: text("color").default("#ffffff"),
-  device_id: text("device_id").notNull(), // Changed from user_id, made text
-  created_at: integer("created_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
-  updated_at: integer("updated_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
-  is_deleted: integer("is_deleted", { mode: "boolean" }).default(false).notNull(),
+  device_id: text("device_id").notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+  is_deleted: boolean("is_deleted").default(false).notNull(),
 });
 
-export const aiChats = sqliteTable("ai_chats", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  note_id: integer("note_id").notNull().references(() => notes.id, { onDelete: "cascade" }), // Added reference
-  device_id: text("device_id").notNull(), // Added device_id for consistency, tied to note's device
-  messages: text("messages", { mode: "json" }).notNull().$type<{role: string, content: string}[]>(),
-  created_at: integer("created_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
-  updated_at: integer("updated_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
+export const aiChats = pgTable("ai_chats", {
+  id: serial("id").primaryKey(),
+  note_id: serial("note_id")
+    .notNull()
+    .references(() => notes.id, { onDelete: "cascade" }),
+  device_id: text("device_id").notNull(),
+  messages: jsonb("messages")
+    .notNull()
+    .$type<{ role: string; content: string }[]>(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 });
 
-export const attachments = sqliteTable("attachments", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  note_id: integer("note_id").notNull().references(() => notes.id, { onDelete: "cascade" }), // Added reference
-  device_id: text("device_id").notNull(), // Added device_id for consistency, tied to note's device
+export const attachments = pgTable("attachments", {
+  id: serial("id").primaryKey(),
+  note_id: serial("note_id")
+    .notNull()
+    .references(() => notes.id, { onDelete: "cascade" }),
+  device_id: text("device_id").notNull(),
   file_path: text("file_path").notNull(),
   file_type: text("file_type").notNull(),
   file_name: text("file_name").notNull(),
-  created_at: integer("created_at", { mode: "timestamp_ms" }).default(sql`(strftime('%s', 'now') * 1000)`).notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Relations
