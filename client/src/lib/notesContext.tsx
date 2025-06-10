@@ -46,7 +46,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         title: "", 
         content: "", 
         is_pinned: false,
-        tags: null,
+        tags: [],
         color: "#ffffff"
       };
       
