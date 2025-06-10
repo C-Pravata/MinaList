@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "tsx --watch --env-file .env server/index.ts",
+    "prebuild": "cd @minanotes/sharing-helper && npm install && npm run build && cd ../..",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist-server",
     "start": "NODE_ENV=production node -r dotenv/config dist-server/index.js",
     "check": "tsc",
