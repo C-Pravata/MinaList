@@ -6,8 +6,11 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     hostname: 'app.mina.io',
-    iosScheme: 'http',
-    androidScheme: 'http',
+    iosScheme: 'https',
+    androidScheme: 'https',
+    allowNavigation: [
+      'minalist.onrender.com'
+    ]
   },
   plugins: {
     SplashScreen: {
