@@ -74,6 +74,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     'capacitor://localhost',
     'http://localhost',
     'http://localhost:8100',
+    'capacitor://app.mina.io',
     'https://app.mina.io',
     'https://minalist.onrender.com' // Your production frontend
   ];
