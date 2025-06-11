@@ -20,9 +20,9 @@ import fs from "fs";
 
 // Middleware to extract and validate device ID
 const deviceIdMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  // Allow OPTIONS requests to pass without device ID check for CORS preflight
-  if (req.method === 'OPTIONS') {
-    return next(); // Skips the rest of the middleware for OPTIONS requests
+  // Allow OPTIONS and HEAD requests to pass without device ID check for CORS preflight or initial connectivity checks
+  if (req.method === 'OPTIONS' || req.method === 'HEAD') {
+    return next(); // Skips the rest of the middleware for OPTIONS or HEAD requests
   }
 
   const deviceId = req.headers['x-device-id'] as string;
