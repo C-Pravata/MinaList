@@ -70,14 +70,24 @@ interface ClientAiMessage {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // 1. CORS Middleware - Placed before any routes or other custom middleware for /api
+  const whitelist = [
+    'capacitor://localhost',
+    'http://localhost',
+    'http://localhost:8100',
+    'https://app.mina.io',
+    'https://minalist.onrender.com' // Your production frontend
+  ];
+
   const corsOptions = {
-    origin: [
-      'capacitor://localhost',        // Allow capacitor default
-      'http://localhost',             // Allow capacitor live reload
-      'http://localhost:8100',        // Vite dev server
-      'https://app.mina.io'           // Your app's configured hostname with https (if used)
-      // Add any other origins if necessary
-    ],
+    origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+      // Allow requests with no origin (like mobile apps, curl) or from the whitelist
+      if (!origin || whitelist.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        console.error(`CORS blocked for origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-ID'], // Ensure X-Device-ID is allowed
     credentials: true, // If you use cookies/session based auth (might not be needed for deviceId)
