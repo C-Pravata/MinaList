@@ -5,9 +5,9 @@ const config: CapacitorConfig = {
   appName: 'Mina',
   webDir: 'dist',
   server: {
-    androidScheme: 'https',
-    iosScheme: 'https',
     hostname: 'app.mina.io',
+    iosScheme: 'http',
+    androidScheme: 'http',
   },
   plugins: {
     SplashScreen: {
