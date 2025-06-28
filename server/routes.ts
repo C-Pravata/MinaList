@@ -17,6 +17,8 @@ import { fromZodError } from "zod-validation-error";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { db } from "./db";
+import { notes } from "@shared/schema";
 
 // Middleware to extract and validate device ID
 const deviceIdMiddleware = (req: Request, res: Response, next: NextFunction) => {
@@ -664,6 +666,31 @@ ${notesContext}`
       res.status(500).json({ 
         message: 'Failed to get AI response',
         error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Health check endpoint for debugging
+  app.get('/api/health', async (req: Request, res: Response) => {
+    try {
+      // Test database connection
+      const testQuery = await db.select().from(notes).limit(1);
+      res.json({ 
+        status: 'ok', 
+        database: 'connected',
+        timestamp: new Date().toISOString(),
+        env: {
+          NODE_ENV: process.env.NODE_ENV,
+          DATABASE_URL_EXISTS: !!process.env.DATABASE_URL
+        }
+      });
+    } catch (error) {
+      console.error('Health check failed:', error);
+      res.status(500).json({ 
+        status: 'error', 
+        database: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
       });
     }
   });
