@@ -113,7 +113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // 2. Device ID Middleware - Applied to all /api routes except health
   app.use('/api', (req: Request, res: Response, next: NextFunction) => {
     // Skip device ID check for health endpoint
-    if (req.path === '/health') {
+    if (req.url === '/health') {
       return next();
     }
     return deviceIdMiddleware(req, res, next);
