@@ -74,28 +74,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // 1. CORS Middleware - Placed before any routes or other custom middleware for /api
   const corsOptions = {
     origin: [
-      'http://localhost:8100',        // Vite dev server
-      'http://localhost',             // Capacitor iOS simulator
-      'capacitor://localhost',        // Capacitor iOS default scheme
-      'capacitor://app.mina.io',      // Your app's configured hostname from capacitor.config.ts
-      'https://app.mina.io'           // Your app's configured hostname with https (if used)
-      // Add any other origins if necessary
+      'http://localhost:5173', // Vite dev server
+      'http://localhost:4173', // Vite preview server
+      'https://minalist.onrender.com', // Production domain
+      'capacitor://localhost', // Capacitor iOS/Android
+      'http://localhost' // Additional localhost variants
     ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-ID'], // Ensure X-Device-ID is allowed
-    credentials: true, // If you use cookies/session based auth (might not be needed for deviceId)
-    optionsSuccessStatus: 204 // Standard for successful OPTIONS preflight
+    credentials: true,
+    optionsSuccessStatus: 200
   };
-  // Apply CORS specifically to /api routes, or globally if preferred
   app.use('/api', cors(corsOptions));
-  // Alternatively, for global CORS: app.use(cors(corsOptions)); before all routes.
+
+  // Health check endpoint for debugging (before device ID middleware)
+  app.get('/api/health', async (req: Request, res: Response) => {
+    try {
+      // Test database connection
+      const testQuery = await db.select().from(notes).limit(1);
+      res.json({ 
+        status: 'ok', 
+        database: 'connected',
+        timestamp: new Date().toISOString(),
+        env: {
+          NODE_ENV: process.env.NODE_ENV,
+          DATABASE_URL_EXISTS: !!process.env.DATABASE_URL
+        }
+      });
+    } catch (error) {
+      console.error('Health check failed:', error);
+      res.status(500).json({ 
+        status: 'error', 
+        database: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // 2. Device ID Middleware - Applied to all /api routes except health
+  app.use('/api', (req: Request, res: Response, next: NextFunction) => {
+    // Skip device ID check for health endpoint
+    if (req.path === '/health') {
+      return next();
+    }
+    return deviceIdMiddleware(req, res, next);
+  });
 
   // Serve uploaded files (can be before or after CORS for /api, depends on if uploads need CORS)
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-
-  // Apply deviceIdMiddleware to all /api routes that need it
-  // This now comes AFTER the CORS middleware for /api paths
-  app.use("/api", deviceIdMiddleware);
 
   // Get all notes
   app.get('/api/notes', async (req: Request, res: Response) => {
@@ -666,31 +691,6 @@ ${notesContext}`
       res.status(500).json({ 
         message: 'Failed to get AI response',
         error: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
-
-  // Health check endpoint for debugging
-  app.get('/api/health', async (req: Request, res: Response) => {
-    try {
-      // Test database connection
-      const testQuery = await db.select().from(notes).limit(1);
-      res.json({ 
-        status: 'ok', 
-        database: 'connected',
-        timestamp: new Date().toISOString(),
-        env: {
-          NODE_ENV: process.env.NODE_ENV,
-          DATABASE_URL_EXISTS: !!process.env.DATABASE_URL
-        }
-      });
-    } catch (error) {
-      console.error('Health check failed:', error);
-      res.status(500).json({ 
-        status: 'error', 
-        database: 'failed',
-        error: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString()
       });
     }
   });
