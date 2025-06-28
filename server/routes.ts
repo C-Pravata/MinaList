@@ -110,20 +110,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 2. Device ID Middleware - Applied to all /api routes except health
-  app.use('/api', (req: Request, res: Response, next: NextFunction) => {
-    // Skip device ID check for health endpoint
-    if (req.url === '/health') {
-      return next();
-    }
-    return deviceIdMiddleware(req, res, next);
-  });
-
   // Serve uploaded files (can be before or after CORS for /api, depends on if uploads need CORS)
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   // Get all notes
-  app.get('/api/notes', async (req: Request, res: Response) => {
+  app.get('/api/notes', deviceIdMiddleware, async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
     console.log(`[GET /api/notes] Device ID: ${deviceId}`);
     try {
@@ -136,7 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get single note
-  app.get('/api/notes/:id', async (req: Request, res: Response) => {
+  app.get('/api/notes/:id', deviceIdMiddleware, async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
     const noteId = parseInt(req.params.id);
     console.log(`[GET /api/notes/:id] Device ID: ${deviceId}, Note ID: ${noteId}`);
@@ -158,7 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a new note
-  app.post('/api/notes', async (req: Request, res: Response) => {
+  app.post('/api/notes', deviceIdMiddleware, async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
     console.log(`[POST /api/notes] Device ID: ${deviceId}`);
     try {
@@ -180,7 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a note
-  app.put('/api/notes/:id', async (req: Request, res: Response) => {
+  app.put('/api/notes/:id', deviceIdMiddleware, async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
     const noteId = parseInt(req.params.id);
     console.log(`[PUT /api/notes/:id] Device ID: ${deviceId}, Note ID: ${noteId}`);
@@ -208,7 +199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a note
-  app.delete('/api/notes/:id', async (req: Request, res: Response) => {
+  app.delete('/api/notes/:id', deviceIdMiddleware, async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
     const noteId = parseInt(req.params.id);
     console.log(`[DELETE /api/notes/:id] Device ID: ${deviceId}, Note ID: ${noteId}`);
@@ -230,7 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload image (now expects Base64 JSON payload)
-  app.post('/api/upload', async (req: Request, res: Response) => {
+  app.post('/api/upload', deviceIdMiddleware, async (req: Request, res: Response) => {
     try {
       console.log('[SERVER /api/upload] Request received (Base64).');
       console.log('[SERVER /api/upload] req.headers:', JSON.stringify(req.headers, null, 2));
@@ -267,22 +258,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const newFilename = uniqueSuffix + fileExtension;
       const filePath = path.join(uploadDir, newFilename);
 
-      await fs.promises.writeFile(filePath, buffer);
+      fs.writeFileSync(filePath, buffer);
+
+      const fileUrl = `/uploads/${newFilename}`;
       console.log(`[SERVER /api/upload] File saved to: ${filePath}`);
+      console.log(`[SERVER /api/upload] File URL: ${fileUrl}`);
 
-      res.json({
-        url: `/uploads/${newFilename}`,
-        filename: newFilename
-      });
-
+      res.json({ url: fileUrl });
     } catch (error) {
-      console.error('[SERVER /api/upload] Error processing Base64 upload:', error);
-      res.status(500).json({ message: 'Failed to upload file from Base64 data' });
+      console.error('[SERVER /api/upload] Error:', error);
+      res.status(500).json({ message: 'Failed to upload file' });
     }
   });
 
   // Save attachment for a note
-  app.post('/api/notes/:noteId/attachments', upload.single('file'), async (req: Request, res: Response) => {
+  app.post('/api/notes/:noteId/attachments', deviceIdMiddleware, upload.single('file'), async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
       const noteId = parseInt(req.params.noteId);
     console.log(`[POST /api/notes/:noteId/attachments] Device ID: ${deviceId}, Note ID: ${noteId}`);
@@ -324,62 +314,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all attachments for a note
-  app.get('/api/notes/:noteId/attachments', async (req: Request, res: Response) => {
+  // Get attachments for a note
+  app.get('/api/notes/:noteId/attachments', deviceIdMiddleware, async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
-      const noteId = parseInt(req.params.noteId);
+    const noteId = parseInt(req.params.noteId);
     console.log(`[GET /api/notes/:noteId/attachments] Device ID: ${deviceId}, Note ID: ${noteId}`);
     try {
-      if (isNaN(noteId)) return res.status(400).json({ message: 'Invalid note ID' });
-      const note = await storage.getNote(noteId, deviceId); // Verify note ownership
-      if (!note) return res.status(404).json({ message: 'Note not found or not authorized' });
+      if (isNaN(noteId)) {
+        return res.status(400).json({ message: 'Invalid note ID' });
+      }
 
-      const attachmentsResult: Attachment[] = await storage.getAttachments(noteId, deviceId);
-      res.json(attachmentsResult);
+      const attachments = await storage.getAttachments(noteId, deviceId);
+      res.json(attachments);
     } catch (error) {
       console.error("Failed to retrieve attachments:", error);
       res.status(500).json({ message: 'Failed to retrieve attachments' });
     }
   });
 
-  // Delete an attachment
-  app.delete('/api/attachments/:attachmentId', async (req: Request, res: Response) => {
+  // Delete attachment
+  app.delete('/api/attachments/:attachmentId', deviceIdMiddleware, async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
     const attachmentId = parseInt(req.params.attachmentId);
     console.log(`[DELETE /api/attachments/:attachmentId] Device ID: ${deviceId}, Attachment ID: ${attachmentId}`);
     try {
-      if (isNaN(attachmentId)) return res.status(400).json({ message: 'Invalid attachment ID' });
-      
-      // Before deleting from DB, get attachment to find file_path for fs.unlink
-      const attachmentToDelete = await storage.getAttachment(attachmentId, deviceId);
-      if (!attachmentToDelete) {
-        return res.status(404).json({ message: 'Attachment not found or not authorized' });
+      if (isNaN(attachmentId)) {
+        return res.status(400).json({ message: 'Invalid attachment ID' });
       }
 
       const success = await storage.deleteAttachment(attachmentId, deviceId);
-      if (success) {
-        // Try to delete the file from the filesystem
-        fs.unlink(attachmentToDelete.file_path, (err) => {
-          if (err) {
-            console.error(`Failed to delete attachment file ${attachmentToDelete.file_path}:`, err);
-            // Optionally, you could decide if this failure should alter the response.
-            // For now, we'll assume DB deletion success is primary.
-          } else {
-            console.log(`Successfully deleted attachment file: ${attachmentToDelete.file_path}`);
-          }
-        });
-      res.status(204).send();
-      } else {
-        res.status(404).json({ message: 'Attachment not found or not authorized, or DB deletion failed' });
+      if (!success) {
+        return res.status(404).json({ message: 'Attachment not found or not authorized for this device' });
       }
+
+      res.status(204).send();
     } catch (error) {
       console.error("Failed to delete attachment:", error);
       res.status(500).json({ message: 'Failed to delete attachment' });
     }
   });
 
-  // Get AI chat history for a note
-  app.get('/api/notes/:noteId/ai-chats', async (req: Request, res: Response) => {
+  // Get AI chats for a note
+  app.get('/api/notes/:noteId/ai-chats', deviceIdMiddleware, async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
     const noteId = parseInt(req.params.noteId);
     console.log(`[GET /api/notes/:noteId/ai-chats] Device ID: ${deviceId}, Note ID: ${noteId}`);
@@ -388,7 +364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid note ID' });
       }
 
-      const chats: AiChat[] = await storage.getAiChats(noteId, deviceId);
+      const chats = await storage.getAiChats(noteId, deviceId);
       res.json(chats);
     } catch (error) {
       console.error("Failed to retrieve AI chats:", error);
@@ -396,8 +372,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create a new AI chat for a note
-  app.post('/api/notes/:noteId/ai-chats', async (req: Request, res: Response) => {
+  // Create AI chat for a note
+  app.post('/api/notes/:noteId/ai-chats', deviceIdMiddleware, async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
     const noteId = parseInt(req.params.noteId);
     console.log(`[POST /api/notes/:noteId/ai-chats] Device ID: ${deviceId}, Note ID: ${noteId}`);
@@ -430,21 +406,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update an AI chat
-  app.put('/api/ai-chats/:id', async (req: Request, res: Response) => {
+  // Update AI chat
+  app.put('/api/ai-chats/:id', deviceIdMiddleware, async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
-      const id = parseInt(req.params.id);
-    console.log(`[PUT /api/ai-chats/:id] Device ID: ${deviceId}, Chat ID: ${id}`);
+    const chatId = parseInt(req.params.id);
+    console.log(`[PUT /api/ai-chats/:id] Device ID: ${deviceId}, Chat ID: ${chatId}`);
     try {
-      if (isNaN(id)) return res.status(400).json({ message: 'Invalid chat ID' });
+      if (isNaN(chatId)) {
+        return res.status(400).json({ message: 'Invalid chat ID' });
+      }
 
       const result = updateAiChatSchema.safeParse(req.body);
       if (!result.success) {
-        return res.status(400).json({ message: fromZodError(result.error).message });
+        const validationError = fromZodError(result.error);
+        return res.status(400).json({ message: validationError.message });
       }
-      // Storage method getAiChat and updateAiChat handle deviceId check via joins/note ownership
-      const updatedChat: AiChat | undefined = await storage.updateAiChat(id, deviceId, result.data);
-      if (!updatedChat) return res.status(404).json({ message: 'Chat not found or not authorized' });
+
+      const updatedChat = await storage.updateAiChat(chatId, deviceId, result.data);
+      if (!updatedChat) {
+        return res.status(404).json({ message: 'AI chat not found or not authorized for this device' });
+      }
+
       res.json(updatedChat);
     } catch (error) {
       console.error("Failed to update AI chat:", error);
@@ -452,19 +434,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get a specific AI chat
-  app.get('/api/ai-chats/:id', async (req: Request, res: Response) => {
+  // Get single AI chat
+  app.get('/api/ai-chats/:id', deviceIdMiddleware, async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
-    const id = parseInt(req.params.id);
-    console.log(`[GET /api/ai-chats/:id] Device ID: ${deviceId}, Chat ID: ${id}`);
+    const chatId = parseInt(req.params.id);
+    console.log(`[GET /api/ai-chats/:id] Device ID: ${deviceId}, Chat ID: ${chatId}`);
     try {
-      if (isNaN(id)) {
+      if (isNaN(chatId)) {
         return res.status(400).json({ message: 'Invalid chat ID' });
       }
 
-      const chat = await storage.getAiChat(id, deviceId);
+      const chat = await storage.getAiChat(chatId, deviceId);
       if (!chat) {
-        return res.status(404).json({ message: 'AI chat not found or not authorized' });
+        return res.status(404).json({ message: 'AI chat not found or not authorized for this device' });
       }
 
       res.json(chat);
@@ -474,8 +456,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Gemini AI chat generation endpoint
-  app.post('/api/notes/:noteId/ai/generate', async (req: Request, res: Response) => {
+  // Generate AI content for a note
+  app.post('/api/notes/:noteId/ai/generate', deviceIdMiddleware, async (req: Request, res: Response) => {
     const deviceId = (req as any).deviceId as string;
     const noteId = parseInt(req.params.noteId);
     const { prompt, history } = req.body as { prompt: string; history?: ClientAiMessage[] };
@@ -562,8 +544,8 @@ When referring to yourself, always use the name "Mina". Be concise, friendly, an
     }
   });
 
-  // Dashboard AI chat with notes context endpoint
-  app.post('/api/ai/dashboard-chat', async (req: Request, res: Response) => {
+  // Dashboard AI chat endpoint
+  app.post('/api/ai/dashboard-chat', deviceIdMiddleware, async (req: Request, res: Response) => {
     try {
       const { messages, notes } = req.body;
       const deviceId = (req as any).deviceId as string;
