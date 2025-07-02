@@ -4,16 +4,16 @@ import { Capacitor } from '@capacitor/core';
 
 // Determine the base URL for API requests
 export let API_BASE_URL = '';
-if (Capacitor.isNativePlatform()) {
-  // Quick Test: For iOS simulator talking to a local backend on the same Mac
-  // Ensure your local backend server (e.g., Express) is running on http://localhost:5000
-  API_BASE_URL = 'http://localhost:5000';
-} else if (import.meta.env.PROD && import.meta.env.VITE_API_BASE_URL) {
-  // Production web build: use VITE_API_BASE_URL from environment variables
+
+// Priority order:
+// 1. Explicit VITE_API_BASE_URL env var (works for both web and native)
+// 2. Native (Capacitor) builds default to the Render production URL
+// 3. Web production without env var – fallback remains '' (calls relative path)
+if (import.meta.env.VITE_API_BASE_URL) {
   API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-} else {
-  // Development web build: use relative paths for Vite proxy (API_BASE_URL remains '')
-  // Or if VITE_API_BASE_URL is not set in production, this will also be the case (which might be an issue)
+} else if (Capacitor.isNativePlatform()) {
+  // Native iOS/Android builds should hit the deployed backend, not localhost.
+  API_BASE_URL = 'https://minalist.onrender.com';
 }
 
 async function throwIfResNotOk(res: Response) {
