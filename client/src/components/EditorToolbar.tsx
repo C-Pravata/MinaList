@@ -25,6 +25,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getDeviceId } from "@/lib/deviceId";
 import { Clipboard } from '@capacitor/clipboard';
+import { API_BASE_URL } from '@/lib/queryClient';
 
 interface EditorToolbarProps {
   onDelete: () => void;
@@ -58,6 +59,9 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
     const deviceId = String(getDeviceId());
     console.log('[uploadAndInsertImage] Using deviceId:', deviceId);
 
+    // Determine the correct upload endpoint (production vs dev)
+    const uploadEndpoint = API_BASE_URL ? `${API_BASE_URL}/api/upload` : '/api/upload';
+
     try {
       let imageUrl: string | null = null;
 
@@ -71,7 +75,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             console.log('[uploadAndInsertImage] File converted to Base64. Length:', base64DataUrl.length);
 
             const options = {
-              url: `http://192.168.1.196:5000/api/upload`,
+              url: uploadEndpoint,
               method: 'POST',
               headers: {
                 'x-device-id': deviceId,
@@ -116,9 +120,9 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             // After processing, insert into Quill
             if (imageUrl) {
               // Construct absolute URL for Quill when on native platform
-              const absoluteImageUrl = Capacitor.isNativePlatform() 
-                ? `http://192.168.1.196:5000${imageUrl}` 
-                : imageUrl; // For web, relative URL from Vite proxy is fine
+              const absoluteImageUrl = API_BASE_URL
+                ? `${API_BASE_URL}${imageUrl}`
+                : imageUrl;
               
               console.log('[uploadAndInsertImage] Inserting into Quill with URL:', absoluteImageUrl);
               quillInstance.insertEmbed(range ? range.index : quillInstance.getLength(), 'image', absoluteImageUrl);
@@ -154,18 +158,25 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
         const webFormData = new FormData(); // Re-define formData for web path
         webFormData.append('image', file);
 
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          headers: {
-            'x-device-id': deviceId,
-          },
-          body: webFormData, // Use webFormData for fetch
-        });
+        let response: Response; // Declare as let, not const
+        try {
+          response = await fetch(uploadEndpoint, {
+            method: 'POST',
+            headers: {
+              'x-device-id': deviceId,
+            },
+            body: webFormData, // Use webFormData for fetch
+          });
+        } catch (fetchError) {
+          console.error('Fetch error during image upload:', fetchError);
+          alert('Network error during image upload. Please check your connection.');
+          throw new Error('Network error during image upload.');
+        }
 
         if (!response.ok) {
           let errorDetails = `Fetch: Upload failed with status: ${response.status}`;
           try {
-            const errorData = await response.json();
+            const errorData: { message?: string } = await response.json(); // Add type annotation
             errorDetails += ` - ${errorData.message || JSON.stringify(errorData)}`;
           } catch (e) {
             try {
@@ -178,7 +189,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
           throw new Error(errorDetails);
         }
 
-        const data = await response.json();
+        const data: { url?: string } = await response.json(); // Add type annotation
         if (data && data.url) {
           imageUrl = data.url;
         } else {
