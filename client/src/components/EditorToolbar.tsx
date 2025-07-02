@@ -25,7 +25,6 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getDeviceId } from "@/lib/deviceId";
 import { Clipboard } from '@capacitor/clipboard';
-import { API_BASE_URL } from '@/lib/queryClient';
 
 interface EditorToolbarProps {
   onDelete: () => void;
@@ -59,9 +58,6 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
     const deviceId = String(getDeviceId());
     console.log('[uploadAndInsertImage] Using deviceId:', deviceId);
 
-    // Determine the correct upload endpoint (production vs dev)
-    const uploadEndpoint = API_BASE_URL ? `${API_BASE_URL}/api/upload` : '/api/upload';
-
     try {
       let imageUrl: string | null = null;
 
@@ -75,7 +71,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             console.log('[uploadAndInsertImage] File converted to Base64. Length:', base64DataUrl.length);
 
             const options = {
-              url: uploadEndpoint,
+              url: `http://192.168.1.196:5000/api/upload`,
               method: 'POST',
               headers: {
                 'x-device-id': deviceId,
@@ -120,9 +116,9 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
             // After processing, insert into Quill
             if (imageUrl) {
               // Construct absolute URL for Quill when on native platform
-              const absoluteImageUrl = API_BASE_URL
-                ? `${API_BASE_URL}${imageUrl}`
-                : imageUrl;
+              const absoluteImageUrl = Capacitor.isNativePlatform() 
+                ? `http://192.168.1.196:5000${imageUrl}` 
+                : imageUrl; // For web, relative URL from Vite proxy is fine
               
               console.log('[uploadAndInsertImage] Inserting into Quill with URL:', absoluteImageUrl);
               quillInstance.insertEmbed(range ? range.index : quillInstance.getLength(), 'image', absoluteImageUrl);
@@ -158,7 +154,7 @@ export default function EditorToolbar({ onDelete, isSaving, quillRef, onAiAssist
         const webFormData = new FormData(); // Re-define formData for web path
         webFormData.append('image', file);
 
-        const response = await fetch(uploadEndpoint, {
+        const response = await fetch('/api/upload', {
           method: 'POST',
           headers: {
             'x-device-id': deviceId,
