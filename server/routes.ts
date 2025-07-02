@@ -76,12 +76,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     origin: [
       'http://localhost:5173', // Vite dev server
       'http://localhost:4173', // Vite preview server
-      'https://minalist.onrender.com', // Production domain
-      'capacitor://localhost', // Capacitor iOS/Android
+      'https://minalist.onrender.com', // Production domain (web build)
+      'capacitor://localhost', // Capacitor default local scheme
+      'capacitor://app.mina.io', // Capacitor iOS/Android WebView (configured hostname)
+      'https://app.mina.io', // Public HTTPS scheme for WebView
       'http://localhost' // Additional localhost variants
     ],
     credentials: true,
-    optionsSuccessStatus: 200
+    optionsSuccessStatus: 200,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-ID']
   };
   app.use('/api', cors(corsOptions));
 

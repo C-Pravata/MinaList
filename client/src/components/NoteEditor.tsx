@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import EditorToolbar from "@/components/EditorToolbar";
 import AIAssistant from "@/components/AIAssistant";
 import { Skeleton } from "@/components/ui/skeleton";
+import { API_BASE_URL } from "@/lib/queryClient";
 
 // Register the Markdown shortcuts module with Quill
 Quill.register('modules/markdownShortcuts', MarkdownShortcuts);
@@ -131,7 +132,9 @@ export default function NoteEditor() {
     const formData = new FormData();
     formData.append('image', file);
     
-    return fetch('/api/upload', {
+    const uploadUrl = API_BASE_URL ? `${API_BASE_URL}/api/upload` : '/api/upload';
+
+    return fetch(uploadUrl, {
       method: 'POST',
       body: formData,
     })
