@@ -8,7 +8,7 @@
     "dev:client": "vite",
     "dev:server": "tsx watch server",
     "prebuild": "cd @minanotes/sharing-helper && npm install && npm run build && cd ../..",
-    "build": "npm run db:push && vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist-server",
+    "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist-server",
     "start": "NODE_ENV=production node -r dotenv/config dist-server/index.js",
     "test": "vitest",
     "db:push": "drizzle-kit push",
